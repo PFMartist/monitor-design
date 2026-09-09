@@ -1,0 +1,22 @@
+{
+  "services": {
+    "smb": {
+      "type": "port",
+      "host": "127.0.0.1",
+      "port": 445
+    },
+    "syncthing": {
+      "type": "syncthing",
+      "api_url": "http://127.0.0.1:8384"
+    },
+    "utorrent": {
+      "type": "utorrent",
+      "api_url": "http://127.0.0.1:8080"
+    },
+    "webdav": {
+      "type": "webdav",
+      "url": "http://127.0.0.1/webdav/"
+    }
+  },
+  "ping_devices": {}
+}

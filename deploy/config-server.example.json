@@ -1,0 +1,26 @@
+{
+  "services": {
+    "smb": {
+      "type": "port",
+      "host": "127.0.0.1",
+      "port": 445
+    },
+    "maa": {
+      "type": "maa",
+      "process_name": "MAA.exe",
+      "log_dir": "C:/Apps/MAA/debug",
+      "log_glob": "gui.log"
+    },
+    "maaend": {
+      "type": "maaend",
+      "process_name": "MaaEnd.exe",
+      "log_dir": "C:/Apps/MaaEnd/debug",
+      "log_glob": "[0-9][0-9][0-9][0-9]-*.log"
+    },
+    "adguard": {
+      "type": "adguard",
+      "api_url": "http://127.0.0.1:3000"
+    }
+  },
+  "ping_devices": {}
+}

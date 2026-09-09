@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+config.json
+maa_alerts.json
+*.tmp
+*.log
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store

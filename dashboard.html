@@ -1,0 +1,1810 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Device Monitor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #12121a;
+    --card-bg: #1a1a28;
+    --card-header-bg: #202038;
+    --text: #d4d4e0;
+    --text-dim: #707088;
+    --green: #2ecc71;
+    --yellow: #f0b040;
+    --red: #e74c3c;
+    --blue: #4a9eff;
+    --orange: #f08050;
+    --amber:  #e07830;
+    --purple: #a080e0;
+    --radius: 10px;
+    --gap: 14px;
+    --font: 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'Consolas', 'Cascadia Code', monospace;
+    --header-bg: #0a0a14;
+    --header-border: #222236;
+    --card-border: #252540;
+    --bar-track: #2a2a42;
+    --input-bg: #0e0e18;
+    --input-border: #333358;
+    --svc-sub-bg: #111122;
+    --toggle-inactive: #3a3a58;
+    --overlay-bg: rgba(0,0,0,0.6);
+    --btn-cancel-bg: #333;
+  }
+
+  /* ========== THEME: CR-T (CRT Terminal) ========== */
+  :root[data-theme="crt"] {
+    --bg: #0a0a0a;
+    --card-bg: #0d0d0d;
+    --card-header-bg: #111;
+    --text: #33ff33;
+    --text-dim: #1a8c1a;
+    --green: #33ff33;
+    --yellow: #ccaa00;
+    --amber:  #cc7700;
+    --red: #ff4444;
+    --blue: #33cc88;
+    --orange: #cc6600;
+    --purple: #66ff66;
+    --header-bg: #000;
+    --header-border: #1a3a1a;
+    --card-border: #1a3a1a;
+    --bar-track: #0f1f0f;
+    --input-bg: #0a0a0a;
+    --input-border: #1a3a1a;
+    --svc-sub-bg: #0a0f0a;
+    --toggle-inactive: #1a2a1a;
+    --overlay-bg: rgba(0,0,0,0.85);
+    --btn-cancel-bg: #111;
+    --font: 'Courier New', 'Consolas', 'Liberation Mono', monospace;
+    --font-mono: 'Courier New', 'Consolas', 'Liberation Mono', monospace;
+    --radius: 0px;
+  }
+
+  /* CRT — DOS aesthetic overrides */
+  :root[data-theme="crt"] body {
+    font-size: 14px;
+  }
+  :root[data-theme="crt"] #header h1 {
+    font-size: 17px; text-shadow: 0 0 6px var(--green);
+  }
+  :root[data-theme="crt"] .device-name {
+    font-size: 15px; text-transform: uppercase;
+  }
+  :root[data-theme="crt"] .metric-label {
+    font-weight: bold; color: var(--text); text-transform: uppercase;
+  }
+
+  /* ========== THEME: Light ========== */
+  :root[data-theme="light"] {
+    --bg: #f0f2f5;
+    --card-bg: #ffffff;
+    --card-header-bg: #f5f6fa;
+    --text: #1a1c2e;
+    --text-dim: #8e8ea0;
+    --green: #27ae60;
+    --yellow: #e67e22;
+    --amber: #d35400;
+    --red: #c0392b;
+    --blue: #2980b9;
+    --orange: #d35400;
+    --purple: #7c5cbf;
+    --header-bg: #e2e4ea;
+    --header-border: #d0d2da;
+    --card-border: #e0e2ec;
+    --bar-track: #e8eaf2;
+    --input-bg: #ffffff;
+    --input-border: #c8cad4;
+    --svc-sub-bg: #f8f9fc;
+    --toggle-inactive: #c0c2cc;
+    --overlay-bg: rgba(0,0,0,0.3);
+    --btn-cancel-bg: #ddd;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    overflow-x: hidden;
+  }
+
+  /* ---------- header ---------- */
+  #header {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 18px; height: 44px;
+    background: var(--header-bg); border-bottom: 1px solid var(--header-border);
+  }
+  #header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.5px; white-space: nowrap; }
+  #header .center { flex: 1; text-align: center; color: var(--text-dim); font-size: 12px; }
+  #header .right  { font-size: 12px; font-weight: 600; letter-spacing: 0.5px; white-space: nowrap; }
+
+  /* ---------- card grid ---------- */
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 3), 1fr);
+    gap: var(--gap);
+    padding: var(--gap);
+    max-width: 100%;
+    align-items: stretch;
+  }
+
+  /* ---------- card ---------- */
+  .card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    border: 1px solid var(--card-border);
+    overflow: hidden;
+    transition: border-color 0.3s, opacity 0.3s;
+    user-select: none;
+  }
+  .card.offline { border-color: var(--red); }
+  .card.stale   { border-color: var(--yellow); }
+  .card.hidden-card { display: none; }
+  .card.dragging { opacity: 0.4; border-style: dashed; }
+  .card.drop-target-left  { border-left:  3px solid var(--blue); }
+  .card.drop-target-right { border-right: 3px solid var(--blue); }
+
+  /* ---------- card header ---------- */
+  .card-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; background: var(--card-header-bg);
+    cursor: grab;
+  }
+  .card-header:active { cursor: grabbing; }
+  .status-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+  .status-dot.online  { background: var(--green);  box-shadow: 0 0 4px var(--green); }
+  .status-dot.stale   { background: var(--yellow); box-shadow: 0 0 4px var(--yellow); }
+  .status-dot.offline { background: var(--red);    box-shadow: 0 0 4px var(--red); }
+  .device-name { font-size: 14px; font-weight: 600; flex: 1; }
+  .uptime-text { color: var(--text-dim); font-size: 11px; font-family: var(--font-mono); }
+
+  /* ---------- card body ---------- */
+  .card-body { padding: 10px 14px; }
+  .section-title {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-dim); margin: 8px 0 6px; border-top: 1px solid var(--card-border); padding-top: 8px;
+  }
+  .section-title:first-child { margin-top: 0; border-top: none; padding-top: 0; }
+
+  .metric-row {
+    display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12px;
+  }
+  .metric-label { width: 40px; flex-shrink: 0; color: var(--text-dim); font-size: 11px; }
+  .metric-bar { flex: 1; height: 5px; background: var(--bar-track); border-radius: 3px; overflow: hidden; }
+  .metric-bar-fill { display: block; height: 100%; border-radius: 3px; }
+  .bar-green  { background: var(--green); }
+  .bar-yellow { background: var(--yellow); }
+  .bar-amber  { background: var(--amber); }
+  .bar-red    { background: var(--red); }
+
+  /* CRT character bar */
+  .crt-bar {
+    font-family: var(--font-mono); font-size: 16px;
+    letter-spacing: -4px; white-space: pre; line-height: 1;
+  }
+
+  /* CRT theme specifics */
+  :root[data-theme="crt"] .card {
+    border: 2px solid var(--card-border);
+    background: var(--card-bg);
+  }
+  :root[data-theme="crt"] .card-header {
+    border-bottom: 2px solid var(--card-border);
+  }
+  :root[data-theme="crt"] .metric-label {
+    font-weight: bold; color: var(--text);
+  }
+  :root[data-theme="crt"] .section-title {
+    font-weight: bold; letter-spacing: 2px;
+  }
+  :root[data-theme="crt"] #header {
+    border-bottom: 2px solid var(--header-border);
+  }
+  #crt-miku {
+    display: none;
+  }
+  /* ---------- bottom band: console + ping aligned with Miku ---------- */
+  #bottom-row {
+    position: fixed;
+    bottom: var(--gap); left: var(--gap); right: var(--gap); z-index: 50;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end; gap: var(--gap);
+  }
+  #bottom-left {
+    min-width: 0;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    gap: 8px;
+  }
+  #ping-bar {
+    width: 100%;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+    border-radius: var(--radius); padding: 6px;
+    font-size: 11px; font-family: var(--font-mono);
+  }
+  :root[data-theme="crt"] #ping-bar { border-width: 2px; }
+  #ping-bar:empty { display: none; }
+  #ping-inner {
+    display: flex; align-items: stretch; gap: 4px; flex-direction: row; flex-wrap: wrap;
+  }
+  .ping-item {
+    display: flex; flex-direction: row; align-items: center; gap: 4px;
+    background: var(--card-header-bg); border: 1px solid var(--card-border);
+    border-radius: 4px; padding: 3px 8px;
+  }
+  .ping-name { font-size: 11px; color: var(--text-dim); font-weight: bold; }
+  :root[data-theme="crt"] .ping-name { color: var(--text); }
+  .ping-dot {
+    width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+  }
+  .ping-dot.ok  { background: var(--green); }
+  .ping-dot.off { background: var(--red); }
+  :root[data-theme="crt"] #crt-miku {
+    display: block;
+    width: 180px; image-rendering: pixelated; flex-shrink: 0;
+    margin-left: auto;
+    cursor: pointer;
+    background: var(--card-bg);
+    border: 2px solid var(--card-border);
+    padding: 6px;
+  }
+  .metric-value { width: 44px; text-align: right; font-family: var(--font-mono); font-size: 11px; flex-shrink: 0; white-space: nowrap; }
+
+  .net-speed { font-family: var(--font-mono); font-size: 11px; }
+
+  .svc-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 12px; }
+  .svc-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .svc-dot.ok    { background: var(--green); }
+  .svc-dot.warn  { background: var(--yellow); }
+  .svc-dot.error { background: var(--red); }
+  .svc-detail { margin-left: auto; color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
+
+  /* MAA recruit alert — inline in the MAA service row, DOS/terminal styling.
+     No animation: the project deliberately ships zero CSS animations. */
+  .maa-alert {
+    margin-left: auto; padding: 0 6px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--yellow);
+    white-space: nowrap;
+    cursor: pointer; user-select: none;
+  }
+  .maa-alert:hover { text-decoration: underline; }
+  .maa-alert.clearing { opacity: 0.4; }
+  /* The alert takes over the right-alignment so the status text sits right
+     after it instead of being pushed to the far edge. */
+  .svc-row.has-alert .svc-detail { margin-left: 6px; }
+
+  .offline-tag {
+    display: none; text-align: center; padding: 6px;
+    background: rgba(231,76,60,0.15); color: var(--red);
+    font-weight: 600; font-size: 11px; letter-spacing: 0.5px;
+  }
+  .card.offline .offline-tag { display: block; }
+  .card.offline .card-body .metric-value { color: var(--text-dim); opacity: 0.4; }
+
+  /* ---------- settings modal ---------- */
+  #overlay {
+    display: none; position: fixed; inset: 0; background: var(--overlay-bg); z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  #overlay.open { display: flex; }
+  .settings-panel {
+    background: var(--card-bg); border: 1px solid var(--input-border); border-radius: 12px;
+    padding: 24px; width: 560px; max-width: 92vw; max-height: 80vh; overflow-y: auto;
+  }
+  .settings-panel h2 { font-size: 16px; margin-bottom: 10px; }
+  .settings-panel h2 span { color: var(--text-dim); font-size: 12px; font-weight: normal; margin-left: 8px; }
+  .settings-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .settings-row label { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+  .settings-row input[type=number], .settings-row select {
+    width: 60px; padding: 5px 8px; border-radius: 5px; border: 1px solid var(--input-border);
+    background: var(--input-bg); color: var(--text); font-size: 12px; text-align: center;
+  }
+  #dev-table { width: 100%; border-collapse: collapse; }
+  #dev-table th { text-align: left; font-size: 10px; text-transform: uppercase; color: var(--text-dim); padding: 4px 6px; }
+  #dev-table td { padding: 5px 4px; vertical-align: middle; }
+  #dev-table input[type=text], #dev-table input[type=number], #cfg-model {
+    width: 100%; padding: 7px 6px; border-radius: 5px; border: 1px solid var(--input-border);
+    background: var(--input-bg); color: var(--text); font-family: var(--font-mono); font-size: 12px;
+  }
+  #cfg-model { width: 280px; }
+  #cfg-model::placeholder { color: var(--text-dim); }
+  #dev-table input:focus, #cfg-model:focus { outline: none; border-color: var(--blue); }
+  #dev-table .col-name { width: 16%; }
+  #dev-table .col-url  { width: 44%; }
+  #dev-table .col-int  { width: 10%; text-align: center; }
+  #dev-table .col-vis  { width: 8%; text-align: center; }
+  #dev-table .col-exp  { width: 4%; text-align: center; cursor: pointer; }
+  .svc-sub { background: var(--svc-sub-bg); }
+  .svc-sub td { padding: 8px 12px !important; font-size: 11px; }
+  .svc-sub label { display: inline-flex; align-items: center; gap: 4px; margin-right: 16px; cursor: pointer; color: var(--text-dim); }
+  .svc-sub input[type=checkbox] { accent-color: var(--green); }
+  .svc-none { color: #555; font-style: italic; }
+
+  /* toggle (reused in settings) */
+  .toggle-track {
+    display: inline-block; width: 36px; height: 20px;
+    background: var(--toggle-inactive); border-radius: 10px;
+    position: relative; cursor: pointer; vertical-align: middle;
+    transition: background 0.2s;
+  }
+  .toggle-track.active { background: var(--green); }
+  .toggle-thumb {
+    position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; border-radius: 50%; background: #fff;
+    transition: left 0.2s;
+  }
+  .toggle-track.active .toggle-thumb { left: 18px; }
+
+  .btn-icon {
+    background: none; border: 1px solid #442; color: var(--red); border-radius: 4px;
+    cursor: pointer; font-size: 14px; padding: 2px 6px; line-height: 1;
+  }
+  .btn-icon:hover { background: #332; }
+
+  .settings-actions { display: flex; gap: 10px; margin-top: 18px; justify-content: space-between; }
+  .settings-actions button {
+    padding: 8px 16px; border-radius: 6px; border: none; font-size: 13px; cursor: pointer;
+  }
+  .btn-save   { background: var(--blue); color: #fff; }
+  .btn-cancel { background: var(--btn-cancel-bg); color: var(--text-dim); }
+  .btn-add    { background: #2a4a2a; color: var(--green); border: 1px solid #3a5a3a !important; margin-top: 10px; }
+  .btn-reset  { background: transparent; color: var(--red); border: 1px solid #442; }
+
+  /* ---------- console dock (chat) ---------- */
+  /* Lives in #bottom-left, so its left/right edges are exactly the same as the
+     ping bar and its right edge naturally stops one --gap before Miku. */
+  #console-dock {
+    position: static;
+    width: min(560px, 100%);
+    align-self: flex-start;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    font-size: 12px;
+  }
+  :root[data-theme="crt"] #console-dock {
+    width: 100%;
+    border-width: 2px;
+  }
+  #console-dock.open {
+    height: clamp(190px, 28vh, 280px);
+    display: flex; flex-direction: column;
+  }
+  #console-head {
+    min-height: 30px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 5px 10px;
+    background: var(--card-header-bg);
+    cursor: pointer; user-select: none;
+    font-size: 11px; letter-spacing: 0.5px;
+  }
+  #console-dock.open #console-head {
+    border-bottom: 1px solid var(--card-border);
+  }
+  :root[data-theme="crt"] #console-dock.open #console-head {
+    border-bottom-width: 2px;
+  }
+  #console-title {
+    font-weight: 600; white-space: nowrap;
+  }
+  #console-toggle-glyph {
+    color: var(--text-dim); font-family: var(--font-mono);
+  }
+  :root[data-theme="crt"] #console-title { color: var(--text); text-transform: uppercase; }
+  :root[data-theme="crt"] #console-toggle-glyph { color: var(--text); }
+  #console-status {
+    margin-left: auto; color: var(--text-dim);
+    font-family: var(--font-mono); font-size: 10px; white-space: nowrap;
+  }
+  #console-status.st-thinking { color: var(--yellow); }
+  #console-status.st-error    { color: var(--red); }
+  #console-status.st-offline  { color: var(--red); }
+  #console-output {
+    display: none;
+    flex: 1; min-height: 0; overflow-y: auto;
+    padding: 8px 10px;
+    line-height: 1.5; word-break: break-word;
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #1a8c1a #0a0a0a;
+  }
+
+  /* Chromium / Edge / Chrome */
+  #console-output::-webkit-scrollbar {
+    width: 8px;
+  }
+  #console-output::-webkit-scrollbar-track {
+    background: #0a0a0a;
+    border-left: 1px solid #1a3a1a;
+  }
+  #console-output::-webkit-scrollbar-thumb {
+    background: #1a8c1a;
+    border: 1px solid #0a0a0a;
+    border-radius: 0;
+  }
+  #console-output::-webkit-scrollbar-thumb:hover {
+    background: #33ff33;
+  }
+  #console-output::-webkit-scrollbar-corner {
+    background: #0a0a0a;
+  }
+  #console-prompt {
+    display: none; align-items: center; gap: 8px;
+    min-height: 32px; padding: 5px 10px;
+    border-top: 1px solid var(--card-border);
+  }
+  :root[data-theme="crt"] #console-prompt { border-top-width: 2px; }
+  #console-prompt > span {
+    color: var(--green); font-family: var(--font-mono); font-weight: bold;
+    flex-shrink: 0;
+  }
+  #console-input {
+    flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+    color: var(--text); font-family: var(--font-mono); font-size: 12px;
+    caret-color: var(--green);
+  }
+  #console-input::placeholder {
+    color: var(--green);
+    opacity: 0.45;
+  }
+  #console-dock.open #console-output { display: block; }
+  #console-dock.open #console-prompt  { display: flex; }
+  .msg { display: flex; gap: 8px; padding: 2px 0; }
+  .msg .who { color: var(--text-dim); font-weight: 600; flex-shrink: 0; }
+  .msg.miku .who { color: var(--green); }
+  .msg .txt { flex: 1; word-break: break-word; white-space: pre-wrap; }
+  .msg.err .txt { color: var(--red); }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 600px) {
+    #grid { grid-template-columns: 1fr; }
+    #bottom-row { left: 8px; right: 8px; bottom: 8px; gap: 8px; }
+    #console-dock { width: 100%; }
+    :root[data-theme="crt"] #crt-miku { width: 120px; }
+  }
+
+  /* ---------- color helpers ---------- */
+  .temp-ok    { color: var(--green); }
+  .temp-warn  { color: var(--yellow); }
+  .temp-amber { color: var(--amber); }
+  .temp-hot   { color: var(--red); }
+  .gpu-ok     { color: var(--green); }
+  .gpu-warn   { color: var(--yellow); }
+  .gpu-amber  { color: var(--amber); }
+  .gpu-hot    { color: var(--red); }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>Device Monitor</h1>
+  <span class="center" id="global-status">All systems nominal</span>
+  <span class="right" id="last-update">--:--:--</span>
+  <span style="cursor:pointer;font-size:14px;padding:4px 6px;opacity:0.5;user-select:none" id="theme-btn" title="Theme">&#127912;</span>
+  <span style="cursor:pointer;font-size:16px;padding:4px 8px;opacity:0.5;user-select:none;margin-left:2px" id="gear-btn" title="Settings">&#9881;</span>
+</div>
+<div id="grid"></div>
+
+
+<!-- Settings modal -->
+<div id="overlay">
+  <div class="settings-panel">
+    <h2>Devices <span>drag cards to reorder</span></h2>
+    <div class="settings-row">
+      <label for="cfg-cols">Columns</label>
+      <input type="number" id="cfg-cols" value="3" min="1" max="8" style="width:50px">
+    </div>
+    <table id="dev-table">
+      <thead><tr><th class="col-exp"></th><th class="col-name">Name</th><th class="col-url">URL</th><th class="col-int">Int</th><th class="col-int">Temp</th><th class="col-vis">Show</th><th class="col-vis">Ping</th><th class="col-del"></th></tr></thead>
+      <tbody id="dev-tbody"></tbody>
+    </table>
+    <button class="btn-add" id="btn-add">+ Add device</button>
+
+    <h2 style="margin-top:16px">Ping Devices <span>ICMP check — does not affect global status</span></h2>
+    <table id="ping-table">
+      <thead><tr><th>Name</th><th>IP</th><th></th></tr></thead>
+      <tbody id="ping-tbody"></tbody>
+    </table>
+    <button class="btn-add" id="btn-add-ping">+ Add ping</button>
+
+    <h2 style="margin-top:16px">Chat <span>local backend — model only; base_url &amp; key stay on disk</span></h2>
+    <div class="settings-row">
+      <label for="cfg-model">Model</label>
+      <input type="text" id="cfg-model" placeholder="backend offline">
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn-reset" id="btn-reset">Reset defaults</button>
+      <button class="btn-cancel" id="btn-cancel">Cancel</button>
+      <button class="btn-save" id="btn-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =========================================================================
+// Device registry (persisted to localStorage)
+// =========================================================================
+
+const DEFAULTS = [
+  { id: "local", name: "Local", url: "http://localhost:9090/", visible: true, interval: 5, hiddenServices: [], servicesConfig: {}, tempLabel: "Amb", pingEnabled: true },
+  { id: "server", name: "Server", url: "http://server.local:9090/", visible: false, interval: 5, hiddenServices: [], servicesConfig: {}, tempLabel: "Amb", pingEnabled: false },
+  { id: "nas", name: "NAS", url: "http://nas.local:9090/", visible: false, interval: 5, hiddenServices: [], servicesConfig: {}, tempLabel: "Amb", pingEnabled: false },
+];
+const DEFAULT_COLS = 3;
+
+// =========================================================================
+// Theme system (modular — add/remove themes here and in CSS)
+// =========================================================================
+
+const THEMES = [
+  {
+    id: "dark", name: "Dark", icon: "🎨",
+    // no overrides — all default rendering
+  },
+  {
+    id: "crt", name: "CRT", icon: "◈",
+    renderBar: (pct, availWidth, barCls) => {
+      const charW = 10;
+      const n = Math.max(6, Math.floor((availWidth - 16) / charW) - 2);
+      const v = Math.round(Math.min(pct||0, 100) / 100 * n);
+      const crit = barCls === "bar-red";
+      const color = crit ? "var(--red)" : "var(--text)";
+      const glow = crit ? "var(--red)" : "var(--green)";
+      return `<span class="crt-bar" style="color:${color};text-shadow:0 0 4px ${glow}">[${"|".repeat(v)}${"·".repeat(n-v)}]</span>`;
+    },
+    renderStatusDot: (status) => {
+      const map = { online:"[*]", stale:"[~]", offline:"[X]", unknown:"[?]" };
+      return `<span class="crt-dot" style="color:var(--text)">${map[status]||map.unknown}</span>`;
+    },
+  },
+  {
+    id: "light", name: "Light", icon: "☀",
+    // no overrides — CSS only
+  },
+];
+
+const LS_THEME = "monitor_theme";
+
+function loadTheme() {
+  try {
+    const stored = localStorage.getItem(LS_THEME);
+    const found = THEMES.find(t => t.id === stored);
+    const t = found || THEMES[0];
+    document.documentElement.dataset.theme = t.id;
+    return t;
+  } catch (_) {
+    document.documentElement.dataset.theme = "dark";
+    return THEMES[0];
+  }
+}
+
+function setTheme(id) {
+  const t = THEMES.find(x => x.id === id) || THEMES[0];
+  document.documentElement.dataset.theme = t.id;
+  try { localStorage.setItem(LS_THEME, t.id); } catch (_) {}
+  state.theme = t;
+  const btn = document.getElementById("theme-btn");
+  if (btn) btn.textContent = t.icon || "🎨";
+  render(true); // theme changes every card's markup — full rebuild
+}
+
+function cycleTheme() {
+  const cur = document.documentElement.dataset.theme || "dark";
+  const idx = THEMES.findIndex(t => t.id === cur);
+  const next = THEMES[(idx + 1) % THEMES.length];
+  setTheme(next.id);
+}
+
+let _idCounter = 0;
+
+function loadRegistry() {
+  try {
+    const raw = localStorage.getItem("monitor_registry");
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  return JSON.parse(JSON.stringify(DEFAULTS)); // deep copy
+}
+
+function saveRegistry(reg) {
+  localStorage.setItem("monitor_registry", JSON.stringify(reg));
+}
+
+function genId() {
+  _idCounter = (_idCounter || 0) + 1;
+  return "dev" + _idCounter;
+}
+
+// =========================================================================
+// Constants
+// =========================================================================
+
+const FETCH_TIMEOUT = 8000;
+const STALE_AGE     = 15000;
+const TICK_MS       = 2000;   // main loop tick
+const LS_ORDER      = "monitor_cardOrder";
+const LS_COLS        = "monitor_cols";
+
+// =========================================================================
+// State
+// =========================================================================
+
+const state = {
+  registry: [],
+  devices: {},
+  cardOrder: [],
+  lastGlobalUpdate: null,
+  columnCount: DEFAULT_COLS,
+  theme: THEMES[0],
+};
+
+function rebuildDeviceState() {
+  const newDevs = {};
+  for (const r of state.registry) {
+    const old = state.devices[r.id];
+    newDevs[r.id] = {
+      id: r.id, name: r.name, url: r.url, visible: r.visible,
+      interval: r.interval || 5,
+      hiddenServices: r.hiddenServices || [],
+      servicesConfig: r.servicesConfig || {},
+      tempLabel: r.tempLabel || "Amb",
+      pingEnabled: r.pingEnabled !== false,
+      status: old ? old.status : "unknown",
+      data:   old ? old.data   : null,
+      error:  old ? old.error  : null,
+      lastPoll: old ? old.lastPoll : 0,
+      netDown: old ? old.netDown : null,
+      netUp:   old ? old.netUp   : null,
+      knownServices: old ? old.knownServices : [],
+    };
+  }
+  state.devices = newDevs;
+  // Ensure cardOrder covers all registry ids, prune removed ones
+  let order = loadOrder();
+  for (const r of state.registry) {
+    if (!order.includes(r.id)) order.push(r.id);
+  }
+  order = order.filter(id => state.registry.some(r => r.id === id));
+  state.cardOrder = order;
+  saveOrder(order);
+}
+
+function loadOrder() {
+  try { return JSON.parse(localStorage.getItem(LS_ORDER)) || DEFAULTS.map(d=>d.id); } catch(_) { return DEFAULTS.map(d=>d.id); }
+}
+function saveOrder(arr) { localStorage.setItem(LS_ORDER, JSON.stringify(arr)); }
+
+// =========================================================================
+// Utilities
+// =========================================================================
+
+function fmtUptime(sec) {
+  if (sec == null || sec < 0) return "--";
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600);
+  if (d > 0) return `${d}d ${h}h`;
+  const m = Math.floor((sec % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function fmtSpeed(bytesPerSec) {
+  if (bytesPerSec == null) return "--";
+  const abs = Math.abs(bytesPerSec);
+  if (abs >= 1e6) return (bytesPerSec/1e6).toFixed(1)+" MB/s";
+  if (abs >= 1e3) return (bytesPerSec/1e3).toFixed(1)+" KB/s";
+  return Math.round(bytesPerSec)+" B/s";
+}
+
+function tempClass(c) {
+  if (c == null) return ""; if (c < 45) return "temp-ok"; if (c < 60) return "temp-warn"; if (c < 75) return "temp-amber"; return "temp-hot";
+}
+function barClass(pct) {
+  if (pct == null) return ""; if (pct < 40) return "bar-green"; if (pct < 65) return "bar-yellow"; if (pct < 85) return "bar-amber"; return "bar-red";
+}
+function gpuClass(pct) {
+  if (pct == null) return ""; if (pct < 40) return "gpu-ok"; if (pct < 65) return "gpu-warn"; if (pct < 85) return "gpu-amber"; return "gpu-hot";
+}
+
+// =========================================================================
+// Network
+// =========================================================================
+
+async function fetchWithTimeout(url, timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { signal: ctrl.signal });
+    if (!resp.ok) return { ok: false, status: resp.status };
+    return { ok: true, data: await resp.json() };
+  } catch (e) {
+    if (e.name === "AbortError") return { ok: false, error: "timeout" };
+    return { ok: false, error: "network" };
+  } finally { clearTimeout(timer); }
+}
+
+async function pollDevice(d) {
+  if (!d.visible) return false;
+  const now = Date.now();
+  if (d._inFlight) return false;                        // already polling
+  if (now - d.lastPoll < d.interval * 1000) return false; // not due yet
+  d._inFlight = true;
+  d.lastPoll = now;
+  try {
+    const result = await fetchWithTimeout(d.url, FETCH_TIMEOUT);
+    if (result.ok && result.data) {
+      d._failStreak = 0;
+      d.status = "online"; d.error = null;
+      const newData = result.data;
+      if (d.data && d.data.system && d.data.system.network && newData.system && newData.system.network) {
+        const prevNet = d.data.system.network;
+        const currNet = newData.system.network;
+        const dt = newData.timestamp - d.data.timestamp;
+        if (dt > 0) {
+          const dRecv = currNet.network_bytes_recv - prevNet.network_bytes_recv;
+          const dSent = currNet.network_bytes_sent  - prevNet.network_bytes_sent;
+          if (dRecv >= 0) d.netDown = dRecv / dt;  // counter reset → skip one cycle
+          if (dSent >= 0) d.netUp   = dSent / dt;
+        }
+      }
+      d.data = newData;
+      if (newData.services) {
+        const svcNames = Object.keys(newData.services);
+        if (svcNames.length > 0) d.knownServices = svcNames;
+      }
+    } else {
+      d._failStreak = (d._failStreak || 0) + 1;
+      if (d._failStreak >= 2) {
+        d.status = "offline"; d.error = result.error || (result.status ? "http_"+result.status : "unknown");
+      }
+    }
+  } finally {
+    d._inFlight = false;
+  }
+  return true;
+}
+
+async function pollAll() {
+  const ds = Object.values(state.devices);
+  const results = await Promise.allSettled(ds.map(pollDevice));
+  state.lastGlobalUpdate = Date.now();
+  const changed = results.some(r => r.status === 'fulfilled' && r.value);
+  if (changed) render();
+}
+
+function pollTick() {
+  pollAll();
+  setTimeout(pollTick, TICK_MS);
+}
+
+// =========================================================================
+// Ping devices (frontend fetch — no agent modifications needed)
+// =========================================================================
+
+let _pingDevices = [];
+let _pingResults = [];
+let _pingVersion = 0;  // bumped after each completed ping round; render rebuilds the bar only on change
+const LS_PINGS = "monitor_pings";
+
+function loadPingDevices() {
+  try { return JSON.parse(localStorage.getItem(LS_PINGS)) || []; } catch (_) { return []; }
+}
+function savePingDevices(arr) { localStorage.setItem(LS_PINGS, JSON.stringify(arr)); }
+
+async function runPings() {
+  // Find first visible device with ping enabled to act as ping proxy
+  const proxy = state.registry.find(r => r.visible && r.pingEnabled);
+  if (!proxy) return;
+  const base = proxy.url.replace(/\/$/, "");
+  for (let i = 0; i < _pingDevices.length; i++) {
+    const p = _pingDevices[i];
+    try {
+      const resp = await fetch(base + "/ping?host=" + encodeURIComponent(p.host));
+      const data = await resp.json();
+      _pingResults[i] = { online: data.online };
+    } catch (e) {
+      _pingResults[i] = { online: false };
+    }
+  }
+  _pingVersion++;
+}
+
+// =========================================================================
+// CRT mascot — script scope, accessible from render()
+// =========================================================================
+
+let _mikuFrame = 0;
+let _mikuState = "";   // "green_clear" etc.
+let _mikuSet = (() => { try { return localStorage.getItem("miku_set") || "miku"; } catch(_) { return "miku"; } })();
+
+function updateMikuSrc() {
+  if (document.documentElement.dataset.theme !== "crt") return; // hidden — don't load frames
+  const m = document.getElementById("crt-miku");
+  if (m && _mikuState) {
+    m.src = "assets/" + _mikuSet + "/" + _mikuState + "/" + _mikuState + "_" + _mikuFrame + ".png";
+  }
+}
+
+// =========================================================================
+// Render (incremental — only cards whose display data changed are rebuilt)
+// =========================================================================
+
+const grid = document.getElementById("grid");
+const globalStatus = document.getElementById("global-status");
+const lastUpdate = document.getElementById("last-update");
+
+const cardEls = new Map();   // device id → live card element
+let _avail = 0;              // cached per-column bar width: one layout read per render
+
+// Bar width is only needed for themes with an ASCII renderBar; read layout once
+// per render instead of per metric row (avoids forced reflow per row).
+function colAvail() {
+  if (!_avail) _avail = Math.max(60, (grid.clientWidth || 700) / Math.max(1, state.columnCount || 3) - 100);
+  return _avail;
+}
+
+// Cheap display-level signature: card is rebuilt only when this changes.
+function cardSig(dr, d) {
+  if (!d) return "no-device";
+  const p = [dr.visible ? 1 : 0, d.status];
+  if (dr.visible && d.data) {
+    const data = d.data, sys = data.system || {};
+    p.push(d.name, d.tempLabel,
+      fmtUptime(data.uptime_seconds),
+      (sys.cpu||{}).cpu_percent ?? "", (sys.memory||{}).memory_percent ?? "");
+    for (const dk of sys.disks || []) p.push(dk.mount, dk.percent);
+    p.push(fmtSpeed(d.netDown), fmtSpeed(d.netUp));
+    const t = sys.temperatures || {};
+    p.push(t.cpu ?? "", t.gpu ?? "");
+    const g = sys.gpu || {};
+    p.push(g.gpu_percent ?? "", (g.gpu_memory_bytes||0) > 0 ? (g.gpu_memory_bytes/1073741824).toFixed(1) : "");
+    for (const [name, svc] of Object.entries(data.services || {})) {
+      p.push(name, svc.online ? "1" : "0", svc.last_task_status==="failure" ? "f" : "",
+             svc.count ?? "", (svc.kinds || []).join(","), svcDetail(name, svc));
+    }
+  }
+  return p.join("");
+}
+
+function makeMetricRow(label, pct, valueStr) {
+  const row = document.createElement("div");
+  row.className = "metric-row";
+  const bCls = barClass(pct);
+  const barHtml = state.theme.renderBar
+    ? state.theme.renderBar(pct, colAvail(), bCls)
+    : `<span class="metric-bar"><span class="metric-bar-fill ${bCls}" style="width:${Math.min(pct||0,100)}%"></span></span>`;
+  row.innerHTML = `<span class="metric-label">${label}</span>${barHtml}<span class="metric-value">${valueStr}</span>`;
+  return row;
+}
+
+function renderCard(dr) {
+  const d = state.devices[dr.id];
+  if (!d) return null;
+  const card = document.createElement("article");
+  card.className = "card";
+  card.dataset.device = d.id;
+  card.draggable = true;
+  if (!dr.visible) card.classList.add("hidden-card");
+  else if (d.status === "offline") card.classList.add("offline");
+  else if (d.status === "stale")  card.classList.add("stale");
+
+  const data = d.data, sys = data ? data.system : null;
+
+  // --- header ---
+  const header = document.createElement("header");
+  header.className = "card-header";
+
+  if (state.theme.renderStatusDot) {
+    const dot = document.createElement("span");
+    dot.style.cssText = "flex-shrink:0";
+    const status = dr.visible ? d.status : "unknown";
+    dot.innerHTML = state.theme.renderStatusDot(status);
+    header.appendChild(dot);
+  } else {
+    const dot = document.createElement("span");
+    dot.className = "status-dot";
+    if (!dr.visible) {}
+    else if (d.status === "online") dot.className += " online";
+    else if (d.status === "stale")  dot.className += " stale";
+    else dot.className += " offline";
+    header.appendChild(dot);
+  }
+
+  const nm = document.createElement("span");
+  nm.className = "device-name"; nm.textContent = d.name; header.appendChild(nm);
+
+  const upt = document.createElement("span");
+  upt.className = "uptime-text";
+  upt.textContent = data ? fmtUptime(data.uptime_seconds) : "";
+  header.appendChild(upt);
+
+  card.appendChild(header);
+
+  // offline tag
+  const ot = document.createElement("div");
+  ot.className = "offline-tag"; ot.textContent = "OFFLINE";
+  card.appendChild(ot);
+
+  // --- body ---
+  const body = document.createElement("div");
+  body.className = "card-body";
+
+  if (dr.visible && sys) {
+    const cpu = sys.cpu || {};
+    body.appendChild(makeMetricRow("CPU", cpu.cpu_percent, cpu.cpu_percent != null ? cpu.cpu_percent+"%" : "--"));
+
+    const mem = sys.memory || {};
+    body.appendChild(makeMetricRow("MEM", mem.memory_percent, mem.memory_percent != null ? mem.memory_percent+"%" : "--"));
+
+    for (const dk of sys.disks || []) {
+      const pct = dk.percent;
+      const dkRow = document.createElement("div");
+      dkRow.className = "metric-row";
+      const label = dk.mount.replace(/\\$/,"").replace(/^(.):/,"$1:");
+      const dkBCls = barClass(pct);
+      const dkBarHtml = state.theme.renderBar
+        ? state.theme.renderBar(pct, colAvail(), dkBCls)
+        : `<span class="metric-bar"><span class="metric-bar-fill ${dkBCls}" style="width:${Math.min(pct||0,100)}%"></span></span>`;
+      dkRow.innerHTML = `<span class="metric-label">${label}</span>${dkBarHtml}<span class="metric-value">${pct!=null?pct+"%":"--"}</span>`;
+      body.appendChild(dkRow);
+    }
+
+    const netRow = document.createElement("div");
+    netRow.className = "metric-row net-row";
+    netRow.innerHTML = `<span class="metric-label">NET</span>
+      <span class="net-speed" style="color:var(--blue)">&#8595;${fmtSpeed(d.netDown)}</span>
+      <span class="net-speed" style="color:var(--green)">&#8593;${fmtSpeed(d.netUp)}</span>`;
+    body.appendChild(netRow);
+
+    const temps = sys.temperatures || {};
+    const tempC = temps.cpu;
+    const tempG = temps.gpu;
+    const gpuData = sys.gpu || {};
+    const gpuPct = gpuData.gpu_percent;
+
+    // Row 1: Temperature
+    const tempRow = document.createElement("div");
+    tempRow.className = "metric-row";
+    let tempHtml = `<span class="metric-label">TEMP</span>`;
+    const tLabel = (d.tempLabel || "Amb") + " ";
+    tempHtml += `<span class="metric-value ${tempClass(tempC)}" style="text-align:left;width:auto;flex:0 0 auto">${tLabel}${tempC!=null?tempC+"°C":"--"}</span>`;
+    if (tempG != null) {
+      tempHtml += `<span class="metric-value ${tempClass(tempG)}" style="text-align:left;width:auto;flex:0 0 auto;margin-left:8px">GPU ${tempG}°C</span>`;
+    }
+    tempRow.innerHTML = tempHtml;
+    body.appendChild(tempRow);
+
+    // Row 2: GPU stats (text colored by usage, no progress bar)
+    if (gpuPct != null || (gpuData.gpu_memory_bytes != null && gpuData.gpu_memory_bytes > 0)) {
+      const gpuRow = document.createElement("div");
+      gpuRow.className = "metric-row";
+      let gpuHtml = `<span class="metric-label">GPU</span>`;
+      if (gpuPct != null) {
+        const gcls = gpuClass(gpuPct);
+        gpuHtml += `<span class="${gcls}" style="font-size:12px;flex:0 0 auto">${gpuPct}%</span>`;
+      }
+      if (gpuData.gpu_memory_bytes != null && gpuData.gpu_memory_bytes > 0) {
+        const gb = (gpuData.gpu_memory_bytes / (1024*1024*1024)).toFixed(1);
+        gpuHtml += `<span style="margin-left:8px;font-size:11px;color:var(--text-dim);flex:0 0 auto">VRAM ${gb}G</span>`;
+      }
+      gpuRow.innerHTML = gpuHtml;
+      body.appendChild(gpuRow);
+    }
+
+    const svcs = data.services || {};
+    const hidden = d.hiddenServices || [];
+    const shown = Object.entries(svcs).filter(([name]) => !hidden.includes(name));
+    // maa_alerts rides inside the MAA row, just before its status text. It only
+    // gets a row of its own when no MAA service is visible at all.
+    const alerts = shown.filter(([, s]) => s.type === "maa_alerts" && (s.count || 0) > 0);
+    const rows = shown.filter(([, s]) => s.type !== "maa_alerts");
+    if (rows.length > 0 || alerts.length > 0) {
+      const st = document.createElement("div"); st.className = "section-title"; st.textContent = "Services"; body.appendChild(st);
+      let placed = false;
+      for (const [name, svc] of rows) {
+        const host = (!placed && svc.type === "maa") ? alerts : [];
+        if (host.length > 0) placed = true;
+        body.appendChild(svcRow(d.id, name, svc, host));
+      }
+      if (!placed) {
+        for (const [name, svc] of alerts) body.appendChild(svcRow(d.id, name, svc));
+      }
+    }
+  } else if (dr.visible && !data) {
+    const p = document.createElement("div");
+    p.style.cssText = "padding:20px;text-align:center;color:var(--text-dim)";
+    p.textContent = "No data";
+    body.appendChild(p);
+  }
+
+  card.appendChild(body);
+  return card;
+}
+
+// MAA recruit alert — a clickable span that rides inside the MAA service row,
+// just before its status text. Shows only the pending *kinds*, never a count.
+// Clicking POSTs /alerts/clear to the owning device, which zeroes the counter
+// there, then drops the alert locally.
+function renderMaaAlert(deviceId, name, svc) {
+  const el = document.createElement("span");
+  el.className = "maa-alert";
+  el.title = "点击清除";
+  el.textContent = "[!] " + (svc.kinds || []).join(" · ");
+  el.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    if (el.classList.contains("clearing")) return;
+    el.classList.add("clearing");
+    const dr = state.registry.find(r => r.id === deviceId);
+    let ok = false;
+    try {
+      const resp = await fetch((dr.url || "").replace(/\/$/, "") + "/alerts/clear", { method: "POST" });
+      ok = resp.ok;
+    } catch (_) { /* device unreachable — leave the banner up */ }
+    if (!ok) { el.classList.remove("clearing"); return; }
+    const d = state.devices[deviceId];
+    const live = d && d.data && d.data.services && d.data.services[name];
+    if (live) { live.count = 0; live.kinds = []; }
+    render(true);
+  });
+  return el;
+}
+
+function svcRow(deviceId, name, svc, alerts = []) {
+  const row = document.createElement("div");
+  row.className = "svc-row";
+  const dot = document.createElement("span");
+  dot.className = "svc-dot";
+  if (!svc.online) dot.className += " error";
+  else if (svc.last_task_status==="failure") dot.className += " error";
+  else dot.className += " ok";
+  row.appendChild(dot);
+  const lbl = document.createElement("span"); lbl.textContent = name; row.appendChild(lbl);
+  for (const [alertName, alertSvc] of alerts) {
+    row.classList.add("has-alert");
+    row.appendChild(renderMaaAlert(deviceId, alertName, alertSvc));
+  }
+  const det = document.createElement("span"); det.className = "svc-detail";
+  det.textContent = svcDetail(name, svc); row.appendChild(det);
+  return row;
+}
+
+function svcDetail(name, svc) {
+  const t = svc.type;
+  if (t === "maa" || t === "maaend") {
+    const st = svc.last_task_status;
+    const nm = svc.last_task_name || "";
+    const tm = (svc.last_task_time_iso || "").slice(11, 16);
+    if (st === "running") return nm ? (nm + (tm ? " " + tm : "")) : "running";
+    if (st && st.startsWith("stuck")) return `STUCK ${st.slice(6)}`;
+    if (st === "idle") return "idle";
+    return svc.process_running ? "running" : "stopped";
+  }
+  if (t === "adguard") {
+    if (!svc.online) return "offline";
+    return `Q:${fmtNum(svc.queries_total)} B:${fmtNum(svc.blocked_total)} ${svc.avg_processing_time_ms!=null?svc.avg_processing_time_ms+"ms":""}`;
+  }
+  if (t === "port")      return svc.port_open ? "open" : "closed";
+  if (t === "syncthing") {
+    if (!svc.online) return "offline";
+    return `pending:${svc.pending_files??"?"} dev:${svc.connected_devices??"?"}`;
+  }
+  if (t === "utorrent") {
+    if (!svc.online) return "offline";
+    return `d:${fmtSpeed(svc.download_speed_bytes)} u:${fmtSpeed(svc.upload_speed_bytes)} act:${svc.active_count??"?"}`;
+  }
+  if (t === "webdav") {
+    if (!svc.online) return "offline";
+    return `${svc.status_code} ${svc.response_time_ms}ms`;
+  }
+  if (t === "maa_alerts") return (svc.kinds || []).join(" · ") || "clear";
+  return svc.online ? "online" : "offline";
+}
+
+function fmtNum(n) { if (n==null) return "?"; if (n>=1e6) return (n/1e6).toFixed(1)+"M"; if (n>=1e3) return (n/1e3).toFixed(1)+"K"; return String(n); }
+
+function render(force) {
+  if (document.hidden && !force) return; // tab in background: defer DOM work
+  // stale detection
+  const now = Date.now();
+  for (const d of Object.values(state.devices)) {
+    if (d.status === "online" && d.data && d.data.timestamp) {
+      if (now - d.data.timestamp*1000 > STALE_AGE) d.status = "stale";
+    }
+  }
+
+  // drop cards for devices removed from the registry
+  const regIds = new Set(state.registry.map(r => r.id));
+  for (const [id, el] of cardEls) {
+    if (!regIds.has(id)) { el.remove(); cardEls.delete(id); }
+  }
+
+  if (force) { grid.innerHTML = ""; cardEls.clear(); _avail = 0; }
+
+  // incremental: rebuild a card only when its display signature changes
+  for (const devId of state.cardOrder) {
+    const dr = state.registry.find(r => r.id === devId);
+    if (!dr) continue;
+    const sig = cardSig(dr, state.devices[devId]);
+    let el = cardEls.get(devId);
+    if (!el) {
+      el = renderCard(dr);
+      if (!el) continue;
+      el._sig = sig;
+      cardEls.set(devId, el);
+      grid.appendChild(el);
+    } else if (el._sig !== sig) {
+      const ne = renderCard(dr);
+      if (!ne) continue;
+      ne._sig = sig;
+      el.replaceWith(ne);
+      cardEls.set(devId, ne);
+    }
+  }
+  syncCardOrder();
+
+  // global status (visible devices only)
+  const vis = state.registry.filter(r => r.visible);
+  const offCnt = vis.filter(r => state.devices[r.id] && state.devices[r.id].status === "offline").length;
+  const stCnt = vis.filter(r => state.devices[r.id] && state.devices[r.id].status === "stale").length;
+  if (offCnt > 0) { globalStatus.textContent = `${offCnt} offline`; globalStatus.style.color = "var(--red)"; }
+  else if (stCnt > 0) { globalStatus.textContent = `${stCnt} stale`; globalStatus.style.color = "var(--yellow)"; }
+  else { globalStatus.textContent = "All systems nominal"; globalStatus.style.color = ""; }
+
+  // CRT mascot: green=all OK, red=offline, blur=high load
+  const miku = document.getElementById("crt-miku");
+  if (miku) {
+    const hasOffline = vis.some(r => state.devices[r.id] && state.devices[r.id].status === "offline");
+    const hasHighLoad = vis.some(r => {
+      const d = state.devices[r.id];
+      if (!d || !d.data || !d.data.system) return false;
+      const cpu = d.data.system.cpu.cpu_percent || 0;
+      const mem = d.data.system.memory.memory_percent || 0;
+      return cpu > 90 || mem > 90;
+    });
+    const color = hasOffline ? "red" : "green";
+    const sharp = hasHighLoad ? "blur" : "clear";
+    const newState = color + "_" + sharp;
+    if (_mikuState !== newState) {
+      _mikuState = newState;
+      updateMikuSrc();
+    } else if (!miku.src || miku.src === window.location.href) {
+      // First render after load — src is still empty, apply initial frame
+      updateMikuSrc();
+    }
+  }
+
+  // Ping bar (frontend fetch — does NOT affect global status; rebuilt only on new results)
+  const pingBar = document.getElementById("ping-bar");
+  if (pingBar && pingBar._ver !== _pingVersion) {
+    if (_pingDevices.length > 0) {
+      pingBar.innerHTML = '<span id="ping-inner">' +
+        _pingResults.map((r, i) =>
+          `<span class="ping-item"><span class="ping-dot ${r.online ? 'ok' : 'off'}"></span><span class="ping-name">${_pingDevices[i].name}</span></span>`
+        ).join("") + '</span>';
+    } else {
+      pingBar.innerHTML = '';
+    }
+    pingBar._ver = _pingVersion;
+  }
+
+  if (state.lastGlobalUpdate) {
+    lastUpdate.textContent = new Date(state.lastGlobalUpdate).toLocaleTimeString("en-GB", { hour12: false });
+  }
+}
+
+// Keep DOM child order aligned with cardOrder (drag & drop uses DOM moves)
+function syncCardOrder() {
+  let prev = null;
+  for (const id of state.cardOrder) {
+    const el = cardEls.get(id);
+    if (!el) continue;
+    if (!prev) {
+      if (grid.firstChild !== el) grid.insertBefore(el, grid.firstChild);
+    } else if (prev.nextSibling !== el) {
+      grid.insertBefore(el, prev.nextSibling);
+    }
+    prev = el;
+  }
+}
+
+// =========================================================================
+// Drag & Drop
+// =========================================================================
+
+function initDragDrop() {
+  grid.addEventListener("dragstart", e => {
+    const card = e.target.closest(".card"); if (!card) return;
+    card.classList.add("dragging");
+    e.dataTransfer.setData("text/plain", card.dataset.device);
+    e.dataTransfer.effectAllowed = "move";
+  });
+  grid.addEventListener("dragend", e => {
+    const card = e.target.closest(".card"); if (card) card.classList.remove("dragging");
+    grid.querySelectorAll(".card").forEach(c=>c.classList.remove("drop-target-left","drop-target-right"));
+  });
+  grid.addEventListener("dragover", e => {
+    e.preventDefault(); e.dataTransfer.dropEffect = "move";
+    const target = e.target.closest(".card"); if (!target) return;
+    grid.querySelectorAll(".card").forEach(c=>c.classList.remove("drop-target-left","drop-target-right"));
+    const midX = target.getBoundingClientRect().left + target.getBoundingClientRect().width/2;
+    target.classList.add(e.clientX < midX ? "drop-target-left" : "drop-target-right");
+  });
+  grid.addEventListener("drop", e => {
+    e.preventDefault();
+    const srcId = e.dataTransfer.getData("text/plain");
+    const target = e.target.closest(".card"); if (!target || srcId === target.dataset.device) return;
+    const rect = target.getBoundingClientRect();
+    const midX = rect.left + rect.width/2;
+    const tgtIdx = state.cardOrder.indexOf(target.dataset.device);
+    const srcIdx = state.cardOrder.indexOf(srcId);
+    let newOrd = state.cardOrder.filter(id => id !== srcId);
+    const insAt = e.clientX < midX ? tgtIdx : tgtIdx + 1;
+    const adj = srcIdx < insAt ? insAt - 1 : insAt;
+    newOrd.splice(adj, 0, srcId);
+    state.cardOrder = newOrd;
+    saveOrder(state.cardOrder);
+    render();
+  });
+}
+
+// =========================================================================
+// Settings modal
+// =========================================================================
+
+const tbody = document.getElementById("dev-tbody");
+const overlay = document.getElementById("overlay");
+
+let _editReg = []; // working copy while modal is open
+// Device ids whose service config was actually fetched/edited this session.
+// Save must never push an untouched (empty) config — that would overwrite the
+// device's real config, since the agent's POST /config replaces the whole file.
+let _cfgDirty = new Set();
+let _cfgInvalid = new Set(); // ids whose JSON failed to parse — never push those
+let _chatModelLoaded = null; // model name as loaded from the backend
+let _editPings = []; // ping devices working copy
+
+function renderSettingsTable() {
+  tbody.innerHTML = "";
+  for (let i = 0; i < _editReg.length; i++) {
+    const r = _editReg[i];
+
+    // --- Main row ---
+    const tr = document.createElement("tr");
+
+    // Expand arrow
+    const tdExp = document.createElement("td"); tdExp.className = "col-exp";
+    const d = state.devices[r.id];
+    const known = (d && d.knownServices) ? d.knownServices : [];
+    const arrow = document.createElement("span");
+    arrow.style.cssText = "font-size:10px;color:var(--text-dim);cursor:pointer";
+    arrow.textContent = "▶";
+    arrow.title = "Configure services";
+    arrow.addEventListener("click", () => {
+      const sub = tr.nextElementSibling;
+      if (sub && sub.classList.contains("svc-sub")) {
+        const hidden = sub.style.display === "none";
+        sub.style.display = hidden ? "table-row" : "none";
+        arrow.textContent = hidden ? "▼" : "▶";
+      }
+    });
+    tdExp.appendChild(arrow); tr.appendChild(tdExp);
+
+    // Name
+    const tdName = document.createElement("td");
+    const inpName = document.createElement("input");
+    inpName.type = "text"; inpName.value = r.name; inpName.placeholder = "Name";
+    inpName.addEventListener("input", () => { _editReg[i].name = inpName.value; });
+    tdName.appendChild(inpName); tr.appendChild(tdName);
+
+    // URL
+    const tdUrl = document.createElement("td");
+    const inpUrl = document.createElement("input");
+    inpUrl.type = "text"; inpUrl.value = r.url; inpUrl.placeholder = "http://...:9090/";
+    inpUrl.addEventListener("input", () => { _editReg[i].url = inpUrl.value; });
+    tdUrl.appendChild(inpUrl); tr.appendChild(tdUrl);
+
+    // Interval
+    const tdInt = document.createElement("td"); tdInt.style.textAlign = "center";
+    const inpInt = document.createElement("input");
+    inpInt.type = "number"; inpInt.value = r.interval || 5; inpInt.min = 1; inpInt.step = 1;
+    inpInt.style.width = "46px";
+    inpInt.title = "Poll interval (seconds)";
+    inpInt.addEventListener("input", () => { _editReg[i].interval = parseInt(inpInt.value) || 5; });
+    tdInt.appendChild(inpInt);
+
+    // Temp label
+    const tdTl = document.createElement("td"); tdTl.style.textAlign = "center";
+    const inpTl = document.createElement("input");
+    inpTl.type = "text"; inpTl.value = r.tempLabel || "Amb"; inpTl.maxLength = 6;
+    inpTl.style.cssText = "width:42px;text-align:center";
+    inpTl.title = "Temperature label (e.g. CPU, Amb, Board)";
+    inpTl.addEventListener("input", () => { _editReg[i].tempLabel = inpTl.value || "Amb"; });
+    tdTl.appendChild(inpTl);
+
+    tr.appendChild(tdInt);
+    tr.appendChild(tdTl);
+
+    // Visible toggle
+    const tdVis = document.createElement("td"); tdVis.style.textAlign = "center";
+    const track = document.createElement("div");
+    track.className = "toggle-track" + (r.visible ? " active" : "");
+    track.innerHTML = '<span class="toggle-thumb"></span>';
+    track.addEventListener("click", () => {
+      _editReg[i].visible = !_editReg[i].visible;
+      track.classList.toggle("active", _editReg[i].visible);
+    });
+    tdVis.appendChild(track); tr.appendChild(tdVis);
+
+    // Ping toggle
+    const tdPing = document.createElement("td"); tdPing.style.textAlign = "center";
+    const pTrack = document.createElement("div");
+    pTrack.className = "toggle-track" + (r.pingEnabled ? " active" : "");
+    pTrack.innerHTML = '<span class="toggle-thumb"></span>';
+    pTrack.addEventListener("click", () => {
+      _editReg[i].pingEnabled = !_editReg[i].pingEnabled;
+      pTrack.classList.toggle("active", _editReg[i].pingEnabled);
+    });
+    tdPing.appendChild(pTrack); tr.appendChild(tdPing);
+
+    // Delete
+    const tdDel = document.createElement("td"); tdDel.style.textAlign = "center";
+    const btnDel = document.createElement("button");
+    btnDel.className = "btn-icon"; btnDel.textContent = "✕"; btnDel.title = "Remove";
+    btnDel.addEventListener("click", () => {
+      if (_editReg.length <= 1) return;
+      _editReg.splice(i, 1);
+      renderSettingsTable();
+    });
+    tdDel.appendChild(btnDel); tr.appendChild(tdDel);
+
+    tbody.appendChild(tr);
+
+    // --- Service sub-row (hidden by default) ---
+    const sub = document.createElement("tr");
+    sub.className = "svc-sub";
+    sub.style.display = "none";
+    const tdSub = document.createElement("td");
+    tdSub.colSpan = 8;
+
+    // Hidden services toggles (from poll data)
+    if (known.length > 0) {
+      const hidden = r.hiddenServices || [];
+      const div = document.createElement("div");
+      div.style.cssText = "margin-bottom:8px;font-size:11px;color:var(--text-dim)";
+      div.textContent = "Hide: ";
+      known.forEach(svcName => {
+        const label = document.createElement("label");
+        label.style.cssText = "margin-right:12px;cursor:pointer";
+        const cb = document.createElement("input");
+        cb.type = "checkbox"; cb.checked = !hidden.includes(svcName);
+        cb.addEventListener("change", () => {
+          const h = _editReg[i].hiddenServices || [];
+          if (cb.checked) _editReg[i].hiddenServices = h.filter(s => s !== svcName);
+          else if (!h.includes(svcName)) _editReg[i].hiddenServices = [...h, svcName];
+        });
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(" " + svcName));
+        div.appendChild(label);
+      });
+      tdSub.appendChild(div);
+    }
+
+    // Services config JSON editor
+    const cfgLabel = document.createElement("div");
+    cfgLabel.style.cssText = "font-size:10px;color:var(--text-dim);margin-bottom:4px";
+    cfgLabel.textContent = "Services config (POST /config)";
+    tdSub.appendChild(cfgLabel);
+
+    const ta = document.createElement("textarea");
+    ta.style.cssText = "width:100%;height:120px;padding:8px;border-radius:5px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--text);font-family:var(--font-mono);font-size:11px;resize:vertical;white-space:pre";
+    ta.value = JSON.stringify(r.servicesConfig || {}, null, 2);
+    ta.spellcheck = false;
+    const errHint = document.createElement("div");
+    errHint.style.cssText = "color:var(--red);font-size:10px;margin-top:2px;display:none";
+    errHint.textContent = "Invalid JSON — backslashes in paths must be \\\\";
+    tdSub.appendChild(errHint);
+    ta.addEventListener("input", () => {
+      try {
+        _editReg[i].servicesConfig = JSON.parse(ta.value);
+        ta.style.borderColor = "var(--green)";
+        errHint.style.display = "none";
+        _cfgDirty.add(_editReg[i].id);
+        _cfgInvalid.delete(_editReg[i].id);
+      } catch (_) {
+        ta.style.borderColor = "var(--red)";
+        errHint.style.display = "block";
+        _cfgInvalid.add(_editReg[i].id);
+        _cfgDirty.delete(_editReg[i].id);
+      }
+    });
+    tdSub.appendChild(ta);
+
+    const btnBar = document.createElement("div");
+    btnBar.style.cssText = "margin-top:4px;display:flex;gap:8px";
+
+    const btnFetch = document.createElement("button");
+    btnFetch.textContent = "Fetch from device";
+    btnFetch.style.cssText = "padding:3px 10px;font-size:11px;border-radius:4px;border:1px solid #444;background:#222;color:var(--text-dim);cursor:pointer";
+    btnFetch.addEventListener("click", async () => {
+      try {
+        const resp = await fetchWithTimeout(r.url.replace(/\/$/,"") + "/config", 3000);
+        if (resp.ok && resp.data) {
+          const svc = resp.data.services || resp.data;
+          ta.value = JSON.stringify(svc, null, 2);
+          _editReg[i].servicesConfig = svc;
+          _cfgDirty.add(_editReg[i].id);
+          _cfgInvalid.delete(_editReg[i].id);
+          ta.style.borderColor = "var(--input-border)";
+        }
+      } catch (_) {}
+    });
+    btnBar.appendChild(btnFetch);
+
+    tdSub.appendChild(btnBar);
+    sub.appendChild(tdSub);
+    tbody.appendChild(sub);
+  }
+}
+
+function renderPingTable() {
+  const pTbody = document.getElementById("ping-tbody");
+  if (!pTbody) return;
+  pTbody.innerHTML = "";
+  for (let i = 0; i < _editPings.length; i++) {
+    const p = _editPings[i];
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td><input type="text" value="${p.name}" placeholder="Name" style="width:100%;padding:5px 6px;border-radius:5px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--text);font-size:12px"></td>
+      <td><input type="text" value="${p.host}" placeholder="192.168.x.x" style="width:100%;padding:5px 6px;border-radius:5px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--text);font-size:12px"></td>
+      <td><button class="btn-icon" title="Remove">✕</button></td>`;
+    tr.querySelectorAll("input")[0].addEventListener("input", e => { _editPings[i].name = e.target.value; });
+    tr.querySelectorAll("input")[1].addEventListener("input", e => { _editPings[i].host = e.target.value; });
+    tr.querySelector("button").addEventListener("click", () => { _editPings.splice(i, 1); renderPingTable(); });
+    pTbody.appendChild(tr);
+  }
+}
+
+function openSettings() {
+  _cfgDirty = new Set();
+  _cfgInvalid = new Set();
+  try {
+    _editReg = JSON.parse(JSON.stringify(state.registry));
+    document.getElementById("cfg-cols").value = state.columnCount || DEFAULT_COLS;
+    renderSettingsTable();
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--red);padding:10px">Error loading settings: ' + (e.message || e) + '</td></tr>';
+  }
+  // Ping devices
+  _editPings = JSON.parse(JSON.stringify(_pingDevices));
+  renderPingTable();
+  loadChatModel();
+  overlay.classList.add("open");
+}
+
+function closeSettings() {
+  overlay.classList.remove("open");
+}
+
+// Model name of the local chat backend. Only the model is editable from the
+// UI — base_url and api_key stay in %APPDATA%\monitor_chat\config.json so the
+// key never reaches the browser.
+function loadChatModel() {
+  const input = document.getElementById("cfg-model");
+  if (!input) return;
+  _chatModelLoaded = null;
+  input.value = "";
+  input.placeholder = "backend offline";
+  chatApi("GET", "/api/config", null, 2000).then(r => {
+    if (r.ok && r.data && r.data.model) {
+      _chatModelLoaded = r.data.model;
+      input.value = r.data.model;
+      input.placeholder = "";
+    }
+  });
+}
+
+function applySettings() {
+  for (const r of _editReg) {
+    if (!r.name.trim() || !r.url.trim()) continue;
+    // Validate servicesConfig JSON if provided
+    if (r.servicesConfig && typeof r.servicesConfig !== "object") continue;
+  }
+  for (const r of _editReg) {
+    if (!r.id) r.id = genId();
+  }
+  state.registry = _editReg;
+  saveRegistry(state.registry);
+
+  const cols = parseInt(document.getElementById("cfg-cols").value) || DEFAULT_COLS;
+  state.columnCount = Math.max(1, Math.min(8, cols));
+  localStorage.setItem(LS_COLS, state.columnCount);
+  grid.style.setProperty("--cols", state.columnCount);
+
+  rebuildDeviceState();
+  render(true);   // registry/columns changed — full rebuild
+  closeSettings();
+  pollAll();
+
+  // Save ping devices to localStorage
+  _pingDevices = _editPings.filter(p => p.name.trim() && p.host.trim());
+  _pingResults = _pingDevices.map(() => ({ online: false }));
+  savePingDevices(_pingDevices);
+  runPings();  // immediate refresh
+
+  // POST service configs — ONLY for devices the user fetched/edited this
+  // session. The agent's POST /config replaces the whole file, so pushing an
+  // untouched (empty) servicesConfig silently wipes the device's services.
+  for (const r of state.registry) {
+    if (!r.visible || !r.servicesConfig) continue;
+    if (!_cfgDirty.has(r.id) || _cfgInvalid.has(r.id)) continue;
+    fetch(r.url.replace(/\/$/,"") + "/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ services: r.servicesConfig }),
+    }).catch(() => {});
+  }
+
+  // Push the model name if changed — the only chat field writable from here
+  const modelInput = document.getElementById("cfg-model");
+  const newModel = ((modelInput && modelInput.value) || "").trim();
+  if (newModel && newModel !== _chatModelLoaded) {
+    chatApi("POST", "/api/config", { model: newModel }, 3000).then(r => {
+      if (r.ok) _chatModelLoaded = newModel;
+      else setChatStatus("MODEL ERR", "st-error");
+    });
+  }
+}
+
+function resetSettings() {
+  _editReg = JSON.parse(JSON.stringify(DEFAULTS));
+  _idCounter = 0;
+  for (const r of _editReg) { r.id = r.id || genId(); }
+  document.getElementById("cfg-cols").value = DEFAULT_COLS;
+  renderSettingsTable();
+}
+
+// =========================================================================
+// Init
+// =========================================================================
+
+document.addEventListener("DOMContentLoaded", () => {
+  state.registry = loadRegistry();
+  _idCounter = state.registry.length;
+
+  // Load theme
+  state.theme = loadTheme();
+  const tbtn = document.getElementById("theme-btn");
+  if (tbtn) tbtn.textContent = state.theme.icon || "🎨";
+
+  // CRT mascot: click to toggle between image sets
+  const mikuEl = document.getElementById("crt-miku");
+  if (mikuEl) {
+    mikuEl.addEventListener("click", () => {
+      const sets = ["miku", "miku2", "miku3"];
+      const idx = sets.indexOf(_mikuSet);
+      _mikuSet = sets[(idx + 1) % sets.length];
+      try { localStorage.setItem("miku_set", _mikuSet); } catch(_) {}
+      updateMikuSrc();
+    });
+  }
+
+  // CRT mascot frame animation (CRT theme, visible tab only)
+  setInterval(() => {
+    if (document.hidden || document.documentElement.dataset.theme !== "crt") return;
+    _mikuFrame = (_mikuFrame + 1) % 4;
+    updateMikuSrc();
+  }, 1000);
+
+  // Load column count
+  try { state.columnCount = parseInt(localStorage.getItem(LS_COLS)) || DEFAULT_COLS; } catch(_) { state.columnCount = DEFAULT_COLS; }
+  state.columnCount = Math.max(1, Math.min(8, state.columnCount));
+  grid.style.setProperty("--cols", state.columnCount);
+
+  rebuildDeviceState();
+  initDragDrop();
+
+  // Theme button
+  document.getElementById("theme-btn").addEventListener("click", cycleTheme);
+
+  // Catch up on first frame when the tab becomes visible again (render is
+  // deferred while hidden); window resize changes bar widths — full rebuild.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) render();
+  });
+  let _resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => render(true), 200);
+  });
+
+  // Settings modal bindings
+  document.getElementById("gear-btn").addEventListener("click", openSettings);
+  document.getElementById("btn-save").addEventListener("click", applySettings);
+  document.getElementById("btn-cancel").addEventListener("click", closeSettings);
+  document.getElementById("btn-reset").addEventListener("click", resetSettings);
+  document.getElementById("btn-add").addEventListener("click", () => {
+    _editReg.push({ id: genId(), name: "", url: "", visible: true, interval: 5, hiddenServices: [], servicesConfig: {} });
+    renderSettingsTable();
+  });
+document.getElementById("btn-add-ping").addEventListener("click", () => {
+    _editPings.push({ name: "", host: "" });
+    renderPingTable();
+  });
+  overlay.addEventListener("click", e => { if (e.target.id === "overlay") closeSettings(); });
+
+  // Ping devices
+  _pingDevices = loadPingDevices();
+  _pingResults = _pingDevices.map(() => ({ online: false }));
+  runPings();
+  setInterval(runPings, 30000);  // every 30 seconds
+
+  pollAll();
+  pollTick();
+});
+
+// =========================================================================
+// Console dock (chat) — fully separate from device rendering
+// Phase 2: plain POST /api/chat (non-streaming); phase 3 swaps in SSE.
+// =========================================================================
+
+const CHAT_API = "http://127.0.0.1:12358";
+const CONSOLE_MAX_MSGS = 40;   // DOM messages kept; oldest are trimmed
+
+let chatBusy = false;
+
+function setChatStatus(label, cls) {
+  const el = document.getElementById("console-status");
+  if (!el) return;
+  el.textContent = "[" + label + "]";
+  el.className = cls || "";
+}
+
+async function chatApi(method, path, body, timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const opts = { method, signal: ctrl.signal };
+    if (body) {
+      opts.headers = { "Content-Type": "application/json" };
+      opts.body = JSON.stringify(body);
+    }
+    // Resolve instead of reject: a closed backend port must not let probe
+    // paths (launch/reload logic) throw before their own error handling.
+    // path may be absolute (e.g. agent /launch/chat); only prefix relative
+    // ones with CHAT_API.
+    const url = /^https?:/.test(path) ? path : CHAT_API + path;
+    const resp = await fetch(url, opts).catch(() => null);
+    if (!resp) return { ok: false, data: {} };
+    const data = await resp.json().catch(() => ({}));
+    return { ok: resp.ok, data };
+  } finally { clearTimeout(timer); }
+}
+
+// Deliberately a hardcoded literal — NOT derived from state.registry[].url.
+// /launch/chat is a lifecycle broker for the LOCAL chat backend only. Making
+// this per-device would let the dashboard try to spawn chat backends on the
+// sub-devices, which have no chat_backend.py. Keep it const.
+const AGENT_API = "http://127.0.0.1:9090";
+let _lastLaunchAt = 0;
+
+// autoStart: when the console is expanded and the backend is down, ask the
+// always-on local agent (9090) to spawn it, then poll until it answers.
+async function chatProbe(autoStart) {
+  let r = await chatApi("GET", "/api/ping", null, 3000);
+  if (!r.ok && autoStart) {
+    if (Date.now() - _lastLaunchAt > 5000) {
+      _lastLaunchAt = Date.now();
+      setChatStatus("STARTING", "st-thinking");
+      await chatApi("POST", AGENT_API + "/launch/chat", null, 3000);
+    }
+    // poll regardless of launch cooldown: an expand + quick Enter must both
+    // converge on the same run instead of skipping the wait window
+    for (let i = 0; i < 14 && !r.ok; i++) {
+      await new Promise(res => setTimeout(res, 400));
+      r = await chatApi("GET", "/api/ping", null, 2000);
+    }
+  }
+  if (!chatBusy) setChatStatus(r.ok ? "LOCAL" : "OFFLINE", r.ok ? "" : "st-offline");
+}
+
+function chatAppend(who, cls, text) {
+  const out = document.getElementById("console-output");
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  const wh = document.createElement("span"); wh.className = "who"; wh.textContent = who;
+  const txt = document.createElement("span"); txt.className = "txt"; txt.textContent = text;
+  div.appendChild(wh); div.appendChild(txt);
+  out.appendChild(div);
+  while (out.children.length > CONSOLE_MAX_MSGS) out.removeChild(out.firstChild);
+  out.scrollTop = out.scrollHeight;
+  return txt;
+}
+
+async function chatSend() {
+  const input = document.getElementById("console-input");
+  const text = (input.value || "").trim();
+  if (!text || chatBusy) return;
+  // Lazy start: backend down (stopped externally / reboot) — bring it up first
+  const pre = await chatApi("GET", "/api/ping", null, 1500);
+  if (!pre.ok) await chatProbe(true);
+  input.value = "";
+  chatAppend("YOU >", "you", text);
+  chatBusy = true;
+  input.disabled = true;
+  setChatStatus("THINKING", "st-thinking");
+  const replyNode = chatAppend("MIKU>", "miku", "…");
+  try {
+    const r = await chatApi("POST", "/api/chat", { message: text }, 90000);
+    if (!r.ok) throw new Error(r.data.error || "request failed");
+    replyNode.textContent = r.data.reply || "(empty reply)";
+    setChatStatus("LOCAL", "");
+  } catch (e) {
+    replyNode.textContent = "⚠ " + (e && e.message ? e.message : String(e));
+    setChatStatus("ERROR", "st-error");
+  } finally {
+    chatBusy = false;
+    input.disabled = false;
+    input.focus();
+  }
+}
+
+function chatToggle(open) {
+  const dock = document.getElementById("console-dock");
+  if (!dock) return;
+  const wantOpen = open != null ? open : !dock.classList.contains("open");
+  dock.classList.toggle("open", wantOpen);
+  dock.classList.toggle("collapsed", !wantOpen);
+  const glyph = document.getElementById("console-toggle-glyph");
+  if (glyph) glyph.textContent = wantOpen ? "[-]" : "[+]";
+  if (wantOpen) {
+    chatProbe(true); // may auto-start the backend via the local agent
+    setTimeout(() => {
+      const i = document.getElementById("console-input");
+      if (i && !i.disabled) i.focus();
+    }, 50);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const head = document.getElementById("console-head");
+  const input = document.getElementById("console-input");
+  if (head) head.addEventListener("click", () => chatToggle());
+  if (input) input.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); chatSend(); }
+  });
+  document.addEventListener("keydown", e => {
+    // Esc collapses the console (unless the user is typing in it)
+    if (e.key === "Escape" && !(e.target && e.target.closest && e.target.closest("#console-input"))) chatToggle(false);
+  });
+  chatProbe();
+});
+</script>
+
+<!-- Bottom control band: left column and Miku share the same grid/gap as cards -->
+<div id="bottom-row">
+  <div id="bottom-left">
+    <section id="console-dock" class="collapsed">
+      <div id="console-head">
+        <span id="console-title"><span id="console-toggle-glyph">[+]</span> MIKU://CHAT</span>
+        <span id="console-status">[LOCAL]</span>
+      </div>
+      <div id="console-output"></div>
+      <div id="console-prompt">
+        <span>&gt;</span>
+        <input id="console-input" autocomplete="off" placeholder="message…">
+      </div>
+    </section>
+    <div id="ping-bar"></div>
+  </div>
+  <img id="crt-miku" src="" alt="">
+</div>
+
+</body>
+</html>
