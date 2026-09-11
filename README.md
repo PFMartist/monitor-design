@@ -8,6 +8,7 @@ Device Monitor 是一个面向 Windows 小主机、NAS 和家庭服务器的轻�
 - TCP 端口、MAA / MaaEnd 日志、AdGuard Home、Syncthing、µTorrent 和 WebDAV 状态检查
 - 单文件 HTML 仪表盘，支持暗色与 CRT 主题、拖拽排序和轮询间隔设置
 - 通过仪表盘读取和更新 Agent 的 `config.json`
+- 来源地址白名单：只处理指定网段的请求，默认仅本机回环；POST 强制 JSON
 - Windows 任务计划程序自启动和副屏全屏启动脚本
 - 可选本地聊天终端，支持 Anthropic 兼容 API；API 密钥不会写入前端
 
@@ -44,6 +45,8 @@ Invoke-RestMethod http://localhost:9090/
 ```
 
 打开 `dashboard.html` 后，在设置面板中配置各设备的 Agent URL。仪表盘设置保存在浏览器 `localStorage` 中。
+
+> Agent 默认只接受**本机回环**的请求。要轮询其他机器，需要在那台 Agent 上设置 `MONITOR_ALLOW_NETS`，详见[安全模型](#安全模型)。
 
 ## Agent 配置
 
@@ -105,7 +108,27 @@ API 密钥也可通过 `MONITOR_CHAT_API_KEY` 环境变量设置。聊天后端�
 
 ## 安全模型
 
-Agent 当前不提供身份认证，并默认监听 `0.0.0.0:9090`。它只适合在可信局域网、VPN 或其他受控网络中运行，不应直接暴露到互联网。跨越可信网络边界部署时，需要通过防火墙限制来源，并增加身份认证和 HTTPS 反向代理。
+Agent 不提供身份认证，因此它自己限制来源：只有源地址落在允许网段内的请求才会被处理，其余在进入任何 API 逻辑之前直接返回 403。
+
+出于安全默认，允许网段**只有本机回环**。要让别的机器上的仪表盘访问某台 Agent，需要在那台 Agent 上显式声明仪表盘流量的来源网段：
+
+```powershell
+$env:MONITOR_ALLOW_NETS = "10.0.0.0/24,127.0.0.1/32"
+```
+
+逗号分隔的 CIDR，可写在 `deploy/run_agent.bat` 里随启动生效；留空表示拒绝所有来源。判断依据是 **TCP 对端地址**，不读取 `X-Forwarded-For` / `X-Real-IP` 这类客户端可以随意伪造的请求头。
+
+另外，所有 POST 必须带 `Content-Type: application/json`，否则返回 415。这顺带让跨域 POST 成为非简单请求，浏览器会先发 preflight 而不是直接盲发。
+
+需要注意这不是身份认证：**任何能从允许网段发包的主机都被视为可信**。所以网段要尽量收窄，并且 Agent 仍只适合在可信局域网、VPN 或其他受控网络中运行，不应直接暴露到互联网。跨越可信网络边界部署时，建议叠加防火墙限制、身份认证和 HTTPS 反向代理。
+
+撞到 403 时：Agent 启动会打印生效的名单，被拒绝的请求也会打印一行。注意 `pythonw` 下没有 stdout，需要前台运行才看得到：
+
+```powershell
+python agent.py --port 9090
+# [monitor] accepting only source IPs in: 127.0.0.1/32, ::1/128
+# [monitor] refused GET / from 10.0.0.9
+```
 
 更多信息见 [SECURITY.md](SECURITY.md)。
 

@@ -1045,7 +1045,10 @@ function renderMaaAlert(deviceId, name, svc) {
     const dr = state.registry.find(r => r.id === deviceId);
     let ok = false;
     try {
-      const resp = await fetch((dr.url || "").replace(/\/$/, "") + "/alerts/clear", { method: "POST" });
+      const resp = await fetch((dr.url || "").replace(/\/$/, "") + "/alerts/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
       ok = resp.ok;
     } catch (_) { /* device unreachable — leave the banner up */ }
     if (!ok) { el.classList.remove("clearing"); return; }
@@ -1671,9 +1674,11 @@ async function chatApi(method, path, body, timeoutMs) {
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const opts = { method, signal: ctrl.signal };
-    if (body) {
+    // POSTs declare JSON even when there is no body (/launch/chat) — the agent
+    // answers 415 to anything that does not.
+    if (method === "POST") {
       opts.headers = { "Content-Type": "application/json" };
-      opts.body = JSON.stringify(body);
+      if (body) opts.body = JSON.stringify(body);
     }
     // Resolve instead of reject: a closed backend port must not let probe
     // paths (launch/reload logic) throw before their own error handling.

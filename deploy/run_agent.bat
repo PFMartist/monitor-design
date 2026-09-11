@@ -35,6 +35,11 @@ if "%PYTHONW%"=="" (
 )
 
 REM Device defaults to hostname. Override with MONITOR_DEVICE if desired.
+
+REM Access control: the agent serves loopback only until you list the networks
+REM your dashboard calls from. Comma-separated CIDRs; empty = refuse everything.
+REM set MONITOR_ALLOW_NETS=10.0.0.0/24,127.0.0.1/32
+
 REM Secrets
 REM AdGuard Home:
 REM set ADGUARD_PASS=your_password_here

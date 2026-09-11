@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Device monitoring agent. Serves system and service metrics as JSON on :9090.
-Reads service config from config.json; accepts POST /config from dashboard."""
+Reads service config from config.json; accepts POST /config from dashboard.
+Serves only source addresses listed in MONITOR_ALLOW_NETS (loopback by default)."""
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
 import platform
@@ -836,6 +838,58 @@ def run_service_checks(services_cfg: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Access control — source-address allowlist
+# ---------------------------------------------------------------------------
+# The agent has no authentication: whatever can reach the port can read every
+# metric and rewrite config.json. So the port is restricted to a set of source
+# networks — loopback only by default.
+#
+# To let a dashboard on another machine reach this agent, list the network it
+# will be calling from, e.g. a LAN or VPN range. Every agent that the dashboard
+# polls needs the range the dashboard's traffic arrives from:
+#
+#     set MONITOR_ALLOW_NETS=10.0.0.0/24,127.0.0.1/32
+#
+# The TCP peer address is what gets checked. X-Forwarded-For and X-Real-IP are
+# ordinary request headers that any client can set, so they never enter this
+# decision (and there is no reverse proxy here to make them meaningful).
+
+DEFAULT_ALLOWED_NETWORKS = (
+    "127.0.0.1/32",      # loopback — local dashboard, curl, /launch/chat
+    "::1/128",           # loopback, IPv6 (inert while the server is AF_INET)
+)
+
+
+def parse_networks(spec: str) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    nets = []
+    for item in spec.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        try:
+            # strict=False so a host address with a prefix ("10.0.0.5/24")
+            # means the subnet it sits in, instead of raising.
+            nets.append(ipaddress.ip_network(item, strict=False))
+        except ValueError:
+            print(f"[monitor] ignoring unparsable network: {item!r}")
+    return tuple(nets)
+
+
+# Overridable via MONITOR_ALLOW_NETS (comma-separated CIDRs). Deliberately NOT
+# read from config.json: POST /config replaces that file wholesale, so any
+# setting kept there is silently wiped the first time the dashboard saves.
+_allowed_networks = parse_networks(",".join(DEFAULT_ALLOWED_NETWORKS))
+
+
+def client_allowed(client_ip: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(client_ip)
+    except ValueError:
+        return False
+    return any(ip in net for net in _allowed_networks)
+
+
+# ---------------------------------------------------------------------------
 # HTTP server
 # ---------------------------------------------------------------------------
 
@@ -851,12 +905,52 @@ class MonitorHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
+    def _client_ip(self) -> str:
+        return (self.client_address or ("", 0))[0]
+
+    def _check_access(self) -> bool:
+        client_ip = self._client_ip()
+        if client_allowed(client_ip):
+            return True
+        print(f"[monitor] refused {self.command} {self.path} from {client_ip}", flush=True)
+        self.send_response(403)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(b"Forbidden")
+        self.close_connection = True
+        return False
+
+    def _require_json(self) -> bool:
+        """Every POST must declare application/json, body or not.
+
+        Content-Type: application/json is not CORS-safelisted, so a browser
+        preflights the request before sending it instead of firing it blind at
+        the agent — which is the hook a future token check would ride on.
+        """
+        ctype = self.headers.get("Content-Type", "")
+        if ctype.split(";", 1)[0].strip().lower() == "application/json":
+            return True
+        print(f"[monitor] refused {self.command} {self.path} from {self._client_ip()}"
+              f": Content-Type={ctype!r}", flush=True)
+        self.send_response(415)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(b"Unsupported Media Type")
+        self.close_connection = True
+        return False
+
     def do_OPTIONS(self):
+        if not self._check_access():
+            return
         self.send_response(204)
         self._cors()
         self.end_headers()
 
     def do_GET(self):
+        if not self._check_access():
+            return
         if self.path == "/":
             self._serve_json(build_response(self.device))
         elif self.path == "/config":
@@ -869,6 +963,10 @@ class MonitorHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
+        if not self._check_access():
+            return
+        if not self._require_json():
+            return
         if self.path == "/config":
             length = int(self.headers.get("Content-Length", 0))
             try:
@@ -908,7 +1006,7 @@ class MonitorHandler(BaseHTTPRequestHandler):
         until asked — the console's expand triggers "start"; "stop" exists so
         tests can shut the elevated child down without shell elevation.
         """
-        if (self.client_address or ("", 0))[0] not in ("127.0.0.1", "::1"):
+        if self._client_ip() not in ("127.0.0.1", "::1"):
             return {"ok": False, "error": "forbidden"}
         script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_backend.py")
         if not os.path.exists(script):
@@ -954,7 +1052,6 @@ class MonitorHandler(BaseHTTPRequestHandler):
 
 def do_ping(host: str) -> dict:
     """ARP for LAN, ICMP for remote. ARP miss on LAN = offline."""
-    import ipaddress
     ip = None
     try:
         ip = ipaddress.ip_address(host)
@@ -1024,10 +1121,16 @@ def build_response(device_id: str) -> dict:
 
 
 def main():
+    global _allowed_networks
+
     parser = argparse.ArgumentParser(description="Device monitoring agent")
     parser.add_argument("--device", default=None, help="Device identity (defaults to hostname)")
     parser.add_argument("--port", type=int, default=9090, help="HTTP listen port (default: 9090)")
     args = parser.parse_args()
+
+    env_nets = os.environ.get("MONITOR_ALLOW_NETS")
+    if env_nets is not None:
+        _allowed_networks = parse_networks(env_nets)  # empty spec = refuse everything
 
     device_id = resolve_device(args.device)
     reload_config()
@@ -1038,6 +1141,8 @@ def main():
     svc_count = len(_active_config.get("services", {}))
     server = HTTPServer(("0.0.0.0", args.port), MonitorHandler)
     print(f"[monitor] device={device_id}  services={svc_count}  listening on 0.0.0.0:{args.port}")
+    nets = ", ".join(str(n) for n in _allowed_networks) or "NONE — every request will be refused"
+    print(f"[monitor] accepting only source IPs in: {nets}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
