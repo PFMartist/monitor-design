@@ -105,18 +105,23 @@
     --btn-cancel-bg: #ddd;
   }
 
-  html, body {
-    height: 100%;
+  /* The page itself never scrolls. Header / cards / bottom panel are one flex
+     column filling the viewport; only the card area scrolls, and only when the
+     cards genuinely don't fit. That's what keeps the panel from ever covering a
+     card — no fixed overlay, no reserved padding, no page scrollbar. */
+  html, body { height: 100%; }
+  body {
+    display: flex; flex-direction: column;
+    overflow: hidden;
     background: var(--bg);
     color: var(--text);
     font-family: var(--font);
     font-size: 13px;
-    overflow-x: hidden;
   }
 
   /* ---------- header ---------- */
   #header {
-    position: sticky; top: 0; z-index: 100;
+    flex: none;
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 18px; height: 44px;
     background: var(--header-bg); border-bottom: 1px solid var(--header-border);
@@ -131,8 +136,19 @@
     grid-template-columns: repeat(var(--cols, 3), 1fr);
     gap: var(--gap);
     padding: var(--gap);
+    /* Takes the space the header and panel leave over. Deliberately clipped,
+       not scrollable: a card running past the bottom edge is preferred over a
+       scrollbar appearing — nothing on this page ever scrolls. */
+    flex: 1 1 auto; min-height: 0;
+    overflow: hidden;
     max-width: 100%;
     align-items: stretch;
+    /* Rows must keep their content height. The grid now has a definite height
+       (flex above), and `auto` rows in a definite-height grid get split evenly
+       to fit it instead of overflowing — which squashed and clipped the cards
+       rather than scrolling them. */
+    grid-auto-rows: max-content;
+    align-content: start;
   }
 
   /* ---------- card ---------- */
@@ -212,33 +228,51 @@
   #crt-miku {
     display: none;
   }
-  /* ---------- bottom band: console + ping aligned with Miku ---------- */
+  /* ---------- bottom band: chat box over Plan/Client box, Miku alongside ------ */
   #bottom-row {
-    position: fixed;
-    bottom: var(--gap); left: var(--gap); right: var(--gap); z-index: 50;
-    display: grid; grid-template-columns: minmax(0, 1fr) auto;
-    align-items: end; gap: var(--gap);
+    flex: none;                       /* last row of the page column */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    /* Miku keeps her natural height and sits on the bottom edge — stretching
+       her to the row height meant every chat expansion dragged her border
+       down with it. */
+    align-items: end;
+    gap: var(--gap);
+    padding: 0 var(--gap) var(--gap);
   }
-  #bottom-left {
+  #dock-left { min-width: 0; display: flex; flex-direction: column; gap: var(--gap); }
+  /* Plan and Clients share one border */
+  #dock-info {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: var(--gap);
+    display: flex; flex-direction: column; gap: 10px;
     min-width: 0;
-    display: flex; flex-direction: column; justify-content: flex-end;
-    gap: 8px;
   }
+  :root[data-theme="crt"] #dock-info { border-width: 2px; }
+  .dock-section { min-width: 0; }
+  /* An empty bar would leave a label with nothing under it — drop the section,
+     and drop the whole box when neither bar has anything in it. */
+  .dock-section:has(#account-bar:empty),
+  .dock-section:has(#ping-bar:empty) { display: none; }
+  #dock-info:has(#account-bar:empty):has(#ping-bar:empty) { display: none; }
+  .dock-label {
+    font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 4px;
+  }
+  :root[data-theme="crt"] .dock-label { color: var(--text); }
   #ping-bar {
     width: 100%;
-    background: var(--card-bg); border: 1px solid var(--card-border);
-    border-radius: var(--radius); padding: 6px;
     font-size: 11px; font-family: var(--font-mono);
   }
-  :root[data-theme="crt"] #ping-bar { border-width: 2px; }
   #ping-bar:empty { display: none; }
   #ping-inner {
-    display: flex; align-items: stretch; gap: 4px; flex-direction: row; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 3px 16px; flex-direction: row; flex-wrap: wrap;
   }
+  /* No box at all — dot + label, the same shape as a service row inside a card */
   .ping-item {
-    display: flex; flex-direction: row; align-items: center; gap: 4px;
-    background: var(--card-header-bg); border: 1px solid var(--card-border);
-    border-radius: 4px; padding: 3px 8px;
+    display: flex; flex-direction: row; align-items: center; gap: 5px;
   }
   .ping-name { font-size: 11px; color: var(--text-dim); font-weight: bold; }
   :root[data-theme="crt"] .ping-name { color: var(--text); }
@@ -247,10 +281,30 @@
   }
   .ping-dot.ok  { background: var(--green); }
   .ping-dot.off { background: var(--red); }
+  /* ---------- account bar: balance / quota (no device owns these) ---------- */
+  #account-bar {
+    width: 100%;
+    font-size: 11px; font-family: var(--font-mono);
+  }
+  #account-bar:empty { display: none; }
+  #account-inner {
+    display: flex; align-items: center; gap: 3px 16px; flex-direction: row; flex-wrap: wrap;
+  }
+  /* No box at all — dot + label, the same shape as a service row inside a card */
+  .acct-item {
+    display: flex; flex-direction: row; align-items: center; gap: 5px;
+  }
+  .acct-name { font-size: 11px; color: var(--text-dim); font-weight: bold; }
+  :root[data-theme="crt"] .acct-name { color: var(--text); }
+  .acct-value { font-size: 11px; color: var(--text); }
+  .acct-value.stale { color: var(--text-dim); }
+  .acct-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .acct-dot.ok   { background: var(--green); }
+  .acct-dot.warn { background: var(--yellow); }
+  .acct-dot.err  { background: var(--red); }
   :root[data-theme="crt"] #crt-miku {
     display: block;
     width: 180px; image-rendering: pixelated; flex-shrink: 0;
-    margin-left: auto;
     cursor: pointer;
     background: var(--card-bg);
     border: 2px solid var(--card-border);
@@ -289,6 +343,12 @@
   }
   .card.offline .offline-tag { display: block; }
   .card.offline .card-body .metric-value { color: var(--text-dim); opacity: 0.4; }
+
+  /* ---------- collapsed card ---------- */
+  /* Must stay below the .card.offline rules: .card.collapsed .offline-tag and
+     .card.offline .offline-tag have equal specificity, so order decides. */
+  .card.collapsed .card-body,
+  .card.collapsed .offline-tag { display: none; }
 
   /* ---------- settings modal ---------- */
   #overlay {
@@ -363,21 +423,14 @@
   /* Lives in #bottom-left, so its left/right edges are exactly the same as the
      ping bar and its right edge naturally stops one --gap before Miku. */
   #console-dock {
-    position: static;
-    width: min(560px, 100%);
-    align-self: flex-start;
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: var(--radius);
     overflow: hidden;
     font-size: 12px;
   }
-  :root[data-theme="crt"] #console-dock {
-    width: 100%;
-    border-width: 2px;
-  }
+  :root[data-theme="crt"] #console-dock { border-width: 2px; }
   #console-dock.open {
-    height: clamp(190px, 28vh, 280px);
     display: flex; flex-direction: column;
   }
   #console-head {
@@ -411,7 +464,9 @@
   #console-status.st-offline  { color: var(--red); }
   #console-output {
     display: none;
-    flex: 1; min-height: 0; overflow-y: auto;
+    /* No flex:1 — its basis is 0, which would override the height set by the
+       .open rule below and collapse the scrollback to nothing. */
+    min-height: 0; overflow-y: auto;
     padding: 8px 10px;
     line-height: 1.5; word-break: break-word;
     /* Firefox */
@@ -457,7 +512,13 @@
     color: var(--green);
     opacity: 0.45;
   }
-  #console-dock.open #console-output { display: block; }
+  #console-dock.open #console-output {
+    display: block;
+    /* Just a fixed, viewport-relative cap — no measuring needed. Kept short on
+       purpose: the card area below is clipped rather than scrollable, so every
+       pixel the chat takes is a pixel of a card that disappears. */
+    height: clamp(96px, 17vh, 160px);
+  }
   #console-dock.open #console-prompt  { display: flex; }
   .msg { display: flex; gap: 8px; padding: 2px 0; }
   .msg .who { color: var(--text-dim); font-weight: 600; flex-shrink: 0; }
@@ -468,8 +529,7 @@
   /* ---------- responsive ---------- */
   @media (max-width: 600px) {
     #grid { grid-template-columns: 1fr; }
-    #bottom-row { left: 8px; right: 8px; bottom: 8px; gap: 8px; }
-    #console-dock { width: 100%; }
+    #bottom-row { grid-template-columns: 1fr; }
     :root[data-theme="crt"] #crt-miku { width: 120px; }
   }
 
@@ -537,9 +597,9 @@
 // =========================================================================
 
 const DEFAULTS = [
-  { id: "local", name: "Local", url: "http://localhost:9090/", visible: true, interval: 5, hiddenServices: [], servicesConfig: {}, tempLabel: "Amb", pingEnabled: true },
+  { id: "local",  name: "Local",  url: "http://localhost:9090/",    visible: true,  interval: 5, hiddenServices: [], servicesConfig: {}, tempLabel: "Amb", pingEnabled: true },
   { id: "server", name: "Server", url: "http://server.local:9090/", visible: false, interval: 5, hiddenServices: [], servicesConfig: {}, tempLabel: "Amb", pingEnabled: false },
-  { id: "nas", name: "NAS", url: "http://nas.local:9090/", visible: false, interval: 5, hiddenServices: [], servicesConfig: {}, tempLabel: "Amb", pingEnabled: false },
+  { id: "nas",    name: "NAS",    url: "http://nas.local:9090/",    visible: false, interval: 5, hiddenServices: [], servicesConfig: {}, tempLabel: "Amb", pingEnabled: false },
 ];
 const DEFAULT_COLS = 3;
 
@@ -609,11 +669,19 @@ function cycleTheme() {
 let _idCounter = 0;
 
 function loadRegistry() {
+  const fallback = JSON.parse(JSON.stringify(DEFAULTS)); // deep copy
+  let reg;
   try {
     const raw = localStorage.getItem("monitor_registry");
-    if (raw) return JSON.parse(raw);
-  } catch (_) {}
-  return JSON.parse(JSON.stringify(DEFAULTS)); // deep copy
+    reg = raw ? JSON.parse(raw) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+  if (!Array.isArray(reg)) return fallback;
+  for (const r of reg) {
+    if (r && LEGACY_URLS[r.url]) r.url = LEGACY_URLS[r.url];
+  }
+  return reg;
 }
 
 function saveRegistry(reg) {
@@ -634,6 +702,7 @@ const STALE_AGE     = 15000;
 const TICK_MS       = 2000;   // main loop tick
 const LS_ORDER      = "monitor_cardOrder";
 const LS_COLS        = "monitor_cols";
+const LS_COLLAPSED  = "monitor_collapsed";
 
 // =========================================================================
 // State
@@ -683,6 +752,31 @@ function loadOrder() {
   try { return JSON.parse(localStorage.getItem(LS_ORDER)) || DEFAULTS.map(d=>d.id); } catch(_) { return DEFAULTS.map(d=>d.id); }
 }
 function saveOrder(arr) { localStorage.setItem(LS_ORDER, JSON.stringify(arr)); }
+
+// Collapsed device cards. Pure view state, per browser — never part of the
+// registry, so it can't be pushed to a device by Save.
+let _collapsed = (() => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_COLLAPSED));
+    return new Set(Array.isArray(raw) ? raw : []);
+  } catch (_) { return new Set(); }
+})();
+
+function saveCollapsed() {
+  try { localStorage.setItem(LS_COLLAPSED, JSON.stringify([..._collapsed])); } catch (_) {}
+}
+
+// Applied straight to the live card instead of going through render(): a
+// collapse changes no polled data, so the card's signature is untouched and
+// rebuilds re-read this state anyway.
+function toggleCollapse(id, card) {
+  if (_collapsed.has(id)) _collapsed.delete(id); else _collapsed.add(id);
+  saveCollapsed();
+  const on = _collapsed.has(id);
+  card.classList.toggle("collapsed", on);
+  const head = card.querySelector(".card-header");
+  if (head) head.title = on ? "点击展开" : "点击折叠";
+}
 
 // =========================================================================
 // Utilities
@@ -757,7 +851,10 @@ async function pollDevice(d) {
       }
       d.data = newData;
       if (newData.services) {
-        const svcNames = Object.keys(newData.services);
+        // Account-level checks are excluded: they have no row on the card, so
+        // offering a Hide toggle for them would be a switch that does nothing.
+        const svcNames = Object.entries(newData.services)
+          .filter(([, s]) => !ACCOUNT_TYPES.has(s.type)).map(([n]) => n);
         if (svcNames.length > 0) d.knownServices = svcNames;
       }
     } else {
@@ -867,8 +964,9 @@ function cardSig(dr, d) {
     const g = sys.gpu || {};
     p.push(g.gpu_percent ?? "", (g.gpu_memory_bytes||0) > 0 ? (g.gpu_memory_bytes/1073741824).toFixed(1) : "");
     for (const [name, svc] of Object.entries(data.services || {})) {
+      if (ACCOUNT_TYPES.has(svc.type)) continue;  // rendered by the account bar
       p.push(name, svc.online ? "1" : "0", svc.last_task_status==="failure" ? "f" : "",
-             svc.count ?? "", (svc.kinds || []).join(","), svcDetail(name, svc));
+             svc.level ?? "", svc.count ?? "", (svc.kinds || []).join(","), svcDetail(name, svc));
     }
   }
   return p.join("");
@@ -895,6 +993,7 @@ function renderCard(dr) {
   if (!dr.visible) card.classList.add("hidden-card");
   else if (d.status === "offline") card.classList.add("offline");
   else if (d.status === "stale")  card.classList.add("stale");
+  if (_collapsed.has(d.id)) card.classList.add("collapsed");
 
   const data = d.data, sys = data ? data.system : null;
 
@@ -925,6 +1024,12 @@ function renderCard(dr) {
   upt.className = "uptime-text";
   upt.textContent = data ? fmtUptime(data.uptime_seconds) : "";
   header.appendChild(upt);
+
+  // The whole header is the toggle: an HTML5 drag never fires click, so it can
+  // stay the drag handle at the same time. No glyph — a collapsed card is
+  // self-evident, so the header carries only a tooltip.
+  header.title = _collapsed.has(d.id) ? "点击展开" : "点击折叠";
+  header.addEventListener("click", () => toggleCollapse(d.id, card));
 
   card.appendChild(header);
 
@@ -1001,7 +1106,9 @@ function renderCard(dr) {
 
     const svcs = data.services || {};
     const hidden = d.hiddenServices || [];
-    const shown = Object.entries(svcs).filter(([name]) => !hidden.includes(name));
+    // Account-level checks live in the account bar, not on a device card.
+    const shown = Object.entries(svcs).filter(([name, s]) =>
+      !hidden.includes(name) && !ACCOUNT_TYPES.has(s.type));
     // maa_alerts rides inside the MAA row, just before its status text. It only
     // gets a row of its own when no MAA service is visible at all.
     const alerts = shown.filter(([, s]) => s.type === "maa_alerts" && (s.count || 0) > 0);
@@ -1067,6 +1174,8 @@ function svcRow(deviceId, name, svc, alerts = []) {
   dot.className = "svc-dot";
   if (!svc.online) dot.className += " error";
   else if (svc.last_task_status==="failure") dot.className += " error";
+  else if (svc.level === "bad") dot.className += " error";  // quota spent / balance unusable
+  else if (svc.level === "warn") dot.className += " warn";
   else dot.className += " ok";
   row.appendChild(dot);
   const lbl = document.createElement("span"); lbl.textContent = name; row.appendChild(lbl);
@@ -1076,6 +1185,7 @@ function svcRow(deviceId, name, svc, alerts = []) {
   }
   const det = document.createElement("span"); det.className = "svc-detail";
   det.textContent = svcDetail(name, svc); row.appendChild(det);
+  if (svc.error_message) row.title = svc.error_message;
   return row;
 }
 
@@ -1108,8 +1218,104 @@ function svcDetail(name, svc) {
     return `${svc.status_code} ${svc.response_time_ms}ms`;
   }
   if (t === "maa_alerts") return (svc.kinds || []).join(" · ") || "clear";
+  if (t === "happy") {
+    // stale = state file left behind by a daemon that died without cleanup
+    if (!svc.online) return svc.stale ? "stale" : "stopped";
+    return `pid ${svc.pid ?? "?"}${svc.version ? " v" + svc.version : ""}`;
+  }
+  if (t === "process") return svc.process_running ? "running" : "stopped";
   return svc.online ? "online" : "offline";
 }
+
+// ---------------------------------------------------------------------------
+// Account bar — balance / quota
+// ---------------------------------------------------------------------------
+// These are account-level, not machine-level: they belong to nobody's device,
+// so they render in their own bar instead of inside a card. The agent tags
+// them by service type; nothing here is hardcoded to a device id.
+
+const ACCOUNT_TYPES = new Set(["deepseek", "opencode"]);
+
+// "offline" alone isn't self-explanatory here — the usual cause is a missing
+// API key, not a dead service. Full text goes in the item's tooltip.
+function balanceError(svc) {
+  const SHORT = { no_key: "no key", bad_response: "bad response",
+                  network: "unreachable", stale: "stale", blocked: "edge blocked" };
+  const code = svc.error_code || "";
+  const txt = SHORT[code] || (/^http_\d+$/.test(code) ? "HTTP " + code.slice(5) : "");
+  return txt ? "offline · " + txt : "offline";
+}
+
+function acctLevel(svc) {
+  if (svc.stale) return "warn";          // transport blip: value shown is the last good one
+  if (!svc.online) return "err";
+  if (svc.level === "bad") return "err";
+  if (svc.level === "warn") return "warn";
+  return "ok";
+}
+
+function acctValue(svc) {
+  if (svc.type === "deepseek") {
+    if (svc.balance == null) return balanceError(svc);
+    const sym = svc.currency === "CNY" ? "¥" : svc.currency === "USD" ? "$" : "";
+    return `${sym}${svc.balance}${svc.currency && sym === "" ? " " + svc.currency : ""}`;
+  }
+  if (svc.type === "opencode") {
+    const p = v => (v == null ? "-" : Math.round(v) + "%");
+    if (svc.rolling_percent == null && svc.weekly_percent == null && svc.monthly_percent == null)
+      return balanceError(svc);
+    return `5h${p(svc.rolling_percent)} wk${p(svc.weekly_percent)} mo${p(svc.monthly_percent)}`;
+  }
+  return svc.online ? "online" : "offline";
+}
+
+// Every device's account-type services — normally just the host's, but keyed
+// off the service type so where it's configured doesn't matter.
+function acctEntries() {
+  const out = [];
+  for (const devId of state.cardOrder) {
+    const d = state.devices[devId];
+    for (const [name, svc] of Object.entries((d && d.data && d.data.services) || {})) {
+      if (ACCOUNT_TYPES.has(svc.type)) out.push({ devId, name, svc });
+    }
+  }
+  return out;
+}
+
+function renderAccountBar() {
+  const bar = document.getElementById("account-bar");
+  if (!bar) return;
+  const entries = acctEntries();
+  const sig = entries.map(e => e.name + "|" + e.svc.type + "|" + acctLevel(e.svc) + "|" + acctValue(e.svc)
+                            + "|" + (e.svc.stale ? "s" : "")).join("~");
+  if (bar._sig === sig) return;   // only rebuild when something actually changed
+  bar._sig = sig;
+  if (entries.length === 0) { bar.innerHTML = ""; return; }
+  const inner = document.createElement("div"); inner.id = "account-inner";
+  for (const { name, svc } of entries) {
+    const item = document.createElement("span"); item.className = "acct-item";
+    const dot = document.createElement("span");
+    dot.className = "acct-dot " + acctLevel(svc);
+    item.appendChild(dot);
+    const nm = document.createElement("span"); nm.className = "acct-name"; nm.textContent = name;
+    item.appendChild(nm);
+    const val = document.createElement("span");
+    val.className = "acct-value" + (svc.stale ? " stale" : "");
+    val.textContent = acctValue(svc);
+    item.appendChild(val);
+    const tip = [];
+    if (svc.error_message) tip.push(svc.error_message);
+    if (svc.stale && svc.fetched_at)
+      tip.push("上次成功 " + new Date(svc.fetched_at * 1000).toLocaleTimeString("en-GB", { hour12: false }));
+    if (svc.type === "deepseek" && svc.is_available === false) tip.push("余额不足以继续调用");
+    if (svc.type === "opencode" && svc.worst_percent != null) tip.push("最紧的窗口已用 " + svc.worst_percent + "%");
+    if (tip.length) item.title = tip.join(" · ");
+    inner.appendChild(item);
+  }
+  bar.innerHTML = "";
+  bar.appendChild(inner);
+}
+
 
 function fmtNum(n) { if (n==null) return "?"; if (n>=1e6) return (n/1e6).toFixed(1)+"M"; if (n>=1e3) return (n/1e3).toFixed(1)+"K"; return String(n); }
 
@@ -1183,6 +1389,9 @@ function render(force) {
       updateMikuSrc();
     }
   }
+
+  // Account bar — fed by whichever agent reports account-type services
+  renderAccountBar();
 
   // Ping bar (frontend fetch — does NOT affect global status; rebuilt only on new results)
   const pingBar = document.getElementById("ping-bar");
@@ -1794,8 +2003,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <!-- Bottom control band: left column and Miku share the same grid/gap as cards -->
 <div id="bottom-row">
-  <div id="bottom-left">
-    <section id="console-dock" class="collapsed">
+  <div id="dock-left">
+    <div id="console-dock" class="collapsed">
       <div id="console-head">
         <span id="console-title"><span id="console-toggle-glyph">[+]</span> MIKU://CHAT</span>
         <span id="console-status">[LOCAL]</span>
@@ -1805,8 +2014,17 @@ document.addEventListener("DOMContentLoaded", () => {
         <span>&gt;</span>
         <input id="console-input" autocomplete="off" placeholder="message…">
       </div>
-    </section>
-    <div id="ping-bar"></div>
+    </div>
+    <div id="dock-info">
+      <div class="dock-section">
+        <div class="dock-label">Plan</div>
+        <div id="account-bar"></div>
+      </div>
+      <div class="dock-section">
+        <div class="dock-label">Clients</div>
+        <div id="ping-bar"></div>
+      </div>
+    </div>
   </div>
   <img id="crt-miku" src="" alt="">
 </div>

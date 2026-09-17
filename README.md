@@ -6,6 +6,7 @@ Device Monitor 是一个面向 Windows 小主机、NAS 和家庭服务器的轻�
 
 - CPU、内存、磁盘、网络、运行时间、温度和 GPU 指标
 - TCP 端口、MAA / MaaEnd 日志、AdGuard Home、Syncthing、µTorrent 和 WebDAV 状态检查
+- DeepSeek 余额与 OpenCode Go 套餐额度查询（账户级，独立于任何一台设备显示）
 - 单文件 HTML 仪表盘，支持暗色与 CRT 主题、拖拽排序和轮询间隔设置
 - 通过仪表盘读取和更新 Agent 的 `config.json`
 - 来源地址白名单：只处理指定网段的请求，默认仅本机回环；POST 强制 JSON
@@ -67,6 +68,10 @@ Agent 从同目录下的 `config.json` 读取配置。仓库提供三份示例�
 | `syncthing` | `api_url` | Syncthing API |
 | `utorrent` | `api_url` | µTorrent WebUI |
 | `webdav` | `url` | HTTP HEAD 探测 |
+| `deepseek` | `low_balance`（可选） | DeepSeek 账户余额 |
+| `opencode` | —— | OpenCode Go 套餐额度（5 小时 / 周 / 月） |
+
+`deepseek` 和 `opencode` 是**账户级**检查，不属于任何一台设备 —— 它们在仪表盘底部单独一行显示，不占用设备卡片。放在哪台 Agent 上由你决定，通常是常开的那台。
 
 凭据通过环境变量传入，不应写入 `config.json`：
 
@@ -76,7 +81,46 @@ $env:ADGUARD_PASS = "your-password"
 $env:SYNCTHING_KEY = "your-api-key"
 $env:UTORRENT_USER = "admin"
 $env:UTORRENT_PASS = "your-password"
+$env:DEEPSEEK_API_KEY = "your-key"
+$env:OPENCODE_API_KEY = "your-key"
 ```
+
+## 余额与额度检查
+
+两个账户级检查直接向厂商 API 取数，因此和本地检查有几处不同：
+
+| | `deepseek` | `opencode` |
+|---|---|---|
+| 端点 | `GET https://api.deepseek.com/user/balance`（有公开文档） | `GET https://opencode.ai/zen/go/v1/usage`（未公开，只有这一个路径可用） |
+| 返回 | 账户余额 | 三个额度窗口的已用百分比（5 小时 / 周 / 月） |
+| 取数 | `urllib` | `curl.exe`（见下） |
+| 密钥 | `DEEPSEEK_API_KEY` | `OPENCODE_API_KEY` |
+
+设计取舍：
+
+- **目标主机写死在代码里**，不像其它检查那样可以配 `api_url`。Agent 没有身份认证，而 `POST /config` 只要能连上端口就能打 —— 如果 URL 可配，任何能碰到端口的人都能把它指向自己的服务器，坐在那儿收 `Authorization` 头里的密钥。要加镜像或代理只能改代码。
+- **结果缓存 5 分钟**（失败 30 秒）。仪表盘每几秒轮询一次，余额不会变动那么快；不缓存的话，一个失效的密钥会让每次轮询都变成一次外网请求。
+- **缓存身份包含密钥指纹**，换密钥后不会继续显示上一个账户的数字。
+- **传输失败与鉴权失败区别对待**：网络超时保留上一次的读数并标记为陈旧，鉴权失败（401/403）立即作废 —— 那些数字描述的是一个你已经用不了的账户。
+- **密钥不会回传到浏览器**：接口只返回数字和一两个稳定的错误码，没配密钥时显示 `offline · no key`。
+
+### opencode 为什么走 curl
+
+`opencode.ai` 在 Cloudflare 后面，会按 TLS 指纹判断客户端：Python 的 `urllib` 直接吃到 `403 Error 1010`（browser_signature_banned），请求还没走到鉴权就被挡了；同一个密钥换 `curl.exe` 就正常返回。
+
+所以这个检查用 `curl.exe` 子进程取数，密钥通过 `-K -` 从 **stdin** 传给 curl（不放在命令行参数里 —— 同一用户下的其它进程能读到进程列表）。这是 Agent 里的第三个子进程，前两个是 `slow_metrics.ps1` 和 `nvidia-smi`，都带 `CREATE_NO_WINDOW` 以免弹窗。
+
+### Windows 上的一个 urllib 陷阱
+
+`urllib` 每次请求都会读系统代理设置，而 CPython 的绕过判定里有一句 `socket.getfqdn()` —— 一次**反向 DNS 查询**，发生在请求发出之前。回环地址有 hosts 记录、瞬间返回；其余地址要等满解析超时。实测同一请求：
+
+| 目标 | 默认 opener | 换用空 `ProxyHandler` |
+|---|---|---|
+| `127.0.0.1` | 0 ms | 0 ms |
+| 局域网地址 | ~6000 ms | 19 ms |
+| 外部 HTTPS | ~4600 ms | 121 ms |
+
+值得注意的是触发条件：**只有系统里配了代理，Python 才会去做这个绕过判定** —— 于是"绕过"这个动作本身成了开销，跟代理转发与否无关。所以 Agent 里所有检查的 HTTP 调用都走一个 `_NO_PROXY_OPENER`（`build_opener(ProxyHandler({}))`）：这些检查要么打回环、要么直连外网，本来就不需要系统代理。`deploy/diag_poll.py` 同样处理过 —— 它以前会把这份开销算进网络延迟里。
 
 ## Windows 部署
 

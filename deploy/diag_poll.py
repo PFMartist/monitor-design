@@ -9,10 +9,21 @@ import time
 import urllib.error
 import urllib.request
 
+# urllib consults the Windows proxy settings on every request, and CPython's
+# bypass check (urllib.request.proxy_bypass_registry) calls socket.getfqdn() —
+# a reverse DNS lookup — before the request even goes out. Loopback answers
+# instantly from the hosts file; anything else waits out the resolver — on the
+# order of seconds per request. An empty ProxyHandler skips that check entirely.
+#
+# Worth remembering when reading latency numbers from this tool: before this
+# fix it was measuring its own proxy bypass as if it were network time.
+_NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
 def poll(url: str, timeout: float) -> dict:
     t0 = time.perf_counter()
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
+        with _NO_PROXY_OPENER.open(url, timeout=timeout) as resp:
             elapsed = round((time.perf_counter() - t0) * 1000, 1)
             body = json.loads(resp.read())
             return {

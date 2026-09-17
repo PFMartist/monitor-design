@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Device monitoring agent. Serves system and service metrics as JSON on :9090.
-Reads service config from config.json; accepts POST /config from dashboard.
-Serves only source addresses listed in MONITOR_ALLOW_NETS (loopback by default)."""
+Reads service config from config.json; accepts POST /config from dashboard."""
 from __future__ import annotations
 
 import argparse
@@ -239,6 +238,7 @@ def get_gpu_usage() -> dict:
 # ---------------------------------------------------------------------------
 
 import glob
+import hashlib
 import http.cookiejar
 import re
 import urllib.error
@@ -246,6 +246,19 @@ import urllib.parse
 import urllib.request
 from base64 import b64encode
 from pathlib import Path
+
+# urllib consults the Windows proxy settings on every request, and CPython's
+# bypass check (urllib.request.proxy_bypass_registry) calls socket.getfqdn() —
+# a reverse DNS lookup — before the request even goes out. Loopback answers
+# instantly from the hosts file, but anything else waits out the resolver:
+# measured ~4.6 s against api.deepseek.com and ~4.9 s against a LAN address on
+# this network. An empty ProxyHandler means the system proxy is never consulted
+# at all, which is what these checks want anyway — they talk to loopback or
+# straight to the internet, never through a proxy.
+#
+# (Every check happened to use 127.0.0.1, so the cost was invisible until the
+# first check that addressed something else.)
+_NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 CHECK_TIMEOUT = 3
 
@@ -261,9 +274,13 @@ def check_port(host: str, port: int) -> dict:
 
 _proc_cache: set[str] = set()
 _proc_cache_time: float = 0
+# Command lines cost far more to collect than image names, so they get their own
+# cache and are only gathered when a check actually asks for a cmdline match.
+_proc_cmdlines: list[tuple[str, str]] = []
+_proc_cmdlines_time: float = 0
 
 
-def check_process(process_name: str) -> dict:
+def _process_names() -> set[str]:
     global _proc_cache, _proc_cache_time
     now = time.time()
     if now - _proc_cache_time > 5:  # refresh once per poll cycle
@@ -275,7 +292,47 @@ def check_process(process_name: str) -> dict:
                 pass
         _proc_cache = names
         _proc_cache_time = now
-    found = process_name.lower() in _proc_cache
+    return _proc_cache
+
+
+def _process_cmdlines() -> list[tuple[str, str]]:
+    """(image name, command line) pairs, both lowercased.
+
+    Kept as pairs rather than a flat list of command lines so a cmdline match
+    can still be tied to the image it belongs to — matching the command line
+    alone would let any process satisfy the check.
+    """
+    global _proc_cmdlines, _proc_cmdlines_time
+    now = time.time()
+    if now - _proc_cmdlines_time > 5:
+        rows = []
+        for p in psutil.process_iter(["name", "cmdline"]):
+            try:
+                nm = (p.info.get("name") or "").lower()
+                cl = p.info.get("cmdline")
+                if nm and cl:
+                    rows.append((nm, " ".join(cl).lower()))
+            except Exception:
+                pass
+        _proc_cmdlines = rows
+        _proc_cmdlines_time = now
+    return _proc_cmdlines
+
+
+def check_process(process_name: str, cmdline_match: str | None = None) -> dict:
+    """Process presence by image name, optionally narrowed by its command line.
+
+    cmdline_match exists because some tools run under a generic image name:
+    happy's daemon is just `node.exe`, so matching on the name alone would light
+    up for any Node process on the box. Both conditions must hold for the same
+    process, not one process each.
+    """
+    name = process_name.lower()
+    if cmdline_match:
+        needle = cmdline_match.lower()
+        found = any(nm == name and needle in cl for nm, cl in _process_cmdlines())
+    else:
+        found = name in _process_names()
     return {"online": found, "process_running": found}
 
 
@@ -560,9 +617,11 @@ def check_maaend(process_name: str, log_dir: str, log_glob: str) -> dict:
 ALERTS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "maa_alerts.json")
 
 # (core callback `what`, details.tag, label shown in the dashboard)
+# The middle field must stay as the game writes it — it's matched against log
+# text. Only the label is ours, and it uses the official English tag names.
 _ALERT_TAGS: tuple[tuple[str, str, str], ...] = (
     ("RecruitSpecialTag", "高级资深干员", "6★"),
-    ("RecruitPreservedTag", "支援机械", "支援机械"),
+    ("RecruitPreservedTag", "支援机械", "Robot"),
 )
 
 
@@ -671,6 +730,93 @@ def check_maa_alerts(log_dir: str, log_glob: str,
     return alerts_view(alerts)
 
 
+# Images the happy daemon can legitimately appear as: happy is a JS CLI, so the
+# process is `node.exe` (or bun with --js-runtime bun), never "happy".
+_HAPPY_IMAGES = {"node", "node.exe", "bun", "bun.exe", "happy", "happy.exe"}
+
+# The daemon heartbeats while alive; anything older than this means it is gone
+# even if the recorded pid now belongs to some other process.
+_HAPPY_HEARTBEAT_MAX_AGE = 3600  # seconds
+
+
+def _parse_happy_time(value) -> float | None:
+    """Happy timestamps look like "2026/9/7 23:02:02" (not zero-padded)."""
+    if not isinstance(value, str):
+        return None
+    for fmt in ("%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return time.mktime(time.strptime(value, fmt))
+        except ValueError:
+            continue
+    return None
+
+
+def check_happy(home_dir: str | None = None) -> dict:
+    """Happy daemon status, read straight from the daemon's own state file.
+
+    Deliberately NOT `happy daemon status`: that spawns Node, measures ~1.9s per
+    call and writes a log line each run — untenable on a 5s poll. The CLI's own
+    liveness check is exactly "read daemon.state.json, is that pid alive?", which
+    this reproduces in about a millisecond.
+
+    Coupled to the state file's shape (happy 1.1.x): pid / httpPort / version /
+    startedAt. Anything missing degrades to null rather than raising.
+    """
+    result = {
+        "online": False, "running": False, "stale": False,
+        "pid": None, "http_port": None, "version": None, "started_at": None,
+        "last_heartbeat_age_seconds": None,
+    }
+    # Mirrors happy's own resolution: HAPPY_HOME_DIR *is* the happy dir (not its
+    # parent), otherwise ~/.happy. Accepts a leading "~" like happy does.
+    base = (home_dir or os.environ.get("HAPPY_HOME_DIR")
+            or os.path.join(os.path.expanduser("~"), ".happy"))
+    state_path = os.path.join(os.path.expanduser(base), "daemon.state.json")
+
+    try:
+        with open(state_path, "r", encoding="utf-8") as f:
+            state = json.load(f)
+    except (OSError, ValueError):
+        return result  # never started, or stopped cleanly (state file removed)
+    if not isinstance(state, dict):
+        return result
+
+    pid = state.get("pid")
+    result["pid"] = pid
+    result["http_port"] = state.get("httpPort")
+    # Key names as actually written by happy 1.x (verified against a live state
+    # file): startedWithCliVersion / startTime. The shorter spellings are kept as
+    # fallbacks in case a build renames them.
+    result["version"] = state.get("startedWithCliVersion") or state.get("version")
+    result["started_at"] = state.get("startTime") or state.get("startedAt")
+
+    hb = _parse_happy_time(state.get("lastHeartbeat"))
+    if hb is not None:
+        result["last_heartbeat_age_seconds"] = int(time.time() - hb)
+
+    alive = False
+    if isinstance(pid, int) and pid > 0:
+        try:
+            proc = psutil.Process(pid)
+            # A recycled PID would read as "running" forever, so also require the
+            # image to still look like a JS runtime.
+            alive = proc.is_running() and (proc.name() or "").lower() in _HAPPY_IMAGES
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            alive = False
+
+    # A long-silent heartbeat overrides a live-looking pid — the strongest signal
+    # available, since pid recycling is common on a dev box.
+    age = result["last_heartbeat_age_seconds"]
+    if alive and age is not None and age > _HAPPY_HEARTBEAT_MAX_AGE:
+        alive = False
+
+    result["running"] = alive
+    result["online"] = alive
+    # State file present but its pid is gone — happy reports this as "stale".
+    result["stale"] = not alive
+    return result
+
+
 def check_adguard(api_url: str) -> dict:
     result = {"online": False, "queries_total": None, "blocked_total": None, "avg_processing_time_ms": None}
     user = os.environ.get("ADGUARD_USER", "admin")
@@ -681,7 +827,7 @@ def check_adguard(api_url: str) -> dict:
         if password:
             creds = b64encode(f"{user}:{password}".encode()).decode()
             req.add_header("Authorization", f"Basic {creds}")
-        with urllib.request.urlopen(req, timeout=CHECK_TIMEOUT) as resp:
+        with _NO_PROXY_OPENER.open(req, timeout=CHECK_TIMEOUT) as resp:
             data = json.loads(resp.read())
             result["online"] = True
             result["queries_total"] = data.get("num_dns_queries")
@@ -696,7 +842,7 @@ def check_syncthing(api_url: str) -> dict:
     result = {"online": False, "pending_files": None, "connected_devices": None, "error_message": None}
     api_key = os.environ.get("SYNCTHING_KEY", "")
     base = api_url.rstrip("/")
-    opener = urllib.request.build_opener()
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     if api_key:
         opener.addheaders = [("X-API-Key", api_key)]
 
@@ -762,7 +908,7 @@ def check_utorrent(api_url: str) -> dict:
     try:
         base = api_url.rstrip("/")
         token_url = f"{base}/gui/token.html"
-        opener = urllib.request.build_opener()
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         if password:
             creds = b64encode(f"{user}:{password}".encode()).decode()
             opener.addheaders = [("Authorization", f"Basic {creds}")]
@@ -775,7 +921,7 @@ def check_utorrent(api_url: str) -> dict:
         req = urllib.request.Request(list_url)
         if password:
             req.add_header("Authorization", f"Basic {creds}")
-        with urllib.request.urlopen(req, timeout=CHECK_TIMEOUT) as resp:
+        with _NO_PROXY_OPENER.open(req, timeout=CHECK_TIMEOUT) as resp:
             data = json.loads(resp.read())
             result["online"] = True
             torrents = data.get("torrents", [])
@@ -795,7 +941,7 @@ def check_webdav(url: str) -> dict:
     try:
         t0 = time.perf_counter()
         req = urllib.request.Request(url, method="HEAD")
-        with urllib.request.urlopen(req, timeout=CHECK_TIMEOUT) as resp:
+        with _NO_PROXY_OPENER.open(req, timeout=CHECK_TIMEOUT) as resp:
             elapsed = round((time.perf_counter() - t0) * 1000, 1)
             result["online"] = resp.status < 500
             result["status_code"] = resp.status
@@ -809,16 +955,350 @@ def check_webdav(url: str) -> dict:
     return result
 
 
+# ---------------------------------------------------------------------------
+# Account balance / quota
+# ---------------------------------------------------------------------------
+# The only checks that leave the LAN: they report an *account's* credit, not a
+# machine's health. That changes two things.
+#
+#   * They're cached for minutes, not seconds. The dashboard polls every few
+#     seconds and a balance doesn't move that fast.
+#   * Failures are cached too, briefly — otherwise a revoked key turns every
+#     dashboard poll into an outbound request.
+#
+# Keys are read from the environment and never returned to the dashboard; the
+# result only says whether a key was found.
+
+BALANCE_TTL = 300       # seconds a good reading is reused
+BALANCE_ERROR_TTL = 30  # ...and a failed one, so we don't hammer the API
+BALANCE_TIMEOUT = 8     # local checks get 3 s; TLS to a vendor CDN needs more
+
+_balance_cache: dict[str, tuple[float, dict]] = {}
+
+
+def _key_fingerprint(key: str) -> str:
+    """Cache identity has to move when the key does, or a swapped account keeps
+    serving the previous one's numbers until the TTL expires."""
+    return hashlib.sha256(key.encode()).hexdigest()[:12] if key else "none"
+
+
+def _cached_balance(cache_key: str, fetch) -> dict:
+    now = time.time()
+    hit = _balance_cache.get(cache_key)
+    if hit:
+        # A stale reading is kept visible but retried on the short TTL, so
+        # recovery doesn't wait out the full 5 minutes.
+        fresh = hit[1].get("online") and not hit[1].get("stale")
+        ttl = BALANCE_TTL if fresh else BALANCE_ERROR_TTL
+        if (now - hit[0]) < ttl:
+            return hit[1]
+
+    result = fetch()
+    result["fetched_at"] = round(now, 3)
+    prev = hit[1] if hit else None
+
+    # A transport failure keeps the last reading on screen, flagged stale — the
+    # bar is polled every few seconds and a blank cell reads as "no data".
+    # An auth failure is not a blip: those numbers describe an account you can
+    # no longer use, so it invalidates instead of lingering.
+    if (prev and (prev.get("online") or prev.get("stale"))
+            and not result.get("online") and result.get("error_code") == "network"):
+        stale = dict(prev)
+        stale["stale"] = True
+        stale["error_code"] = "stale"
+        stale["error_message"] = result.get("error_message")
+        stale["fetched_at"] = prev.get("fetched_at", now)  # last SUCCESS, not this attempt
+        result = stale
+    else:
+        result["stale"] = False
+
+    _balance_cache[cache_key] = (now, result)
+    return result
+
+
+class _BlockedError(Exception):
+    """Edge/WAF rejection (Cloudflare 1010 and friends). Not a key problem and
+    not retryable — telling them apart matters, because "your key is wrong" and
+    "the CDN won't talk to this HTTP client" want different fixes."""
+
+
+def _curl_get(url: str, key: str) -> dict:
+    """GET via curl.exe, for the vendors whose edge rejects Python's TLS
+    fingerprint. opencode.ai answers urllib with Cloudflare 1010 before auth is
+    even considered, while curl.exe sails through — which is why the ecosystem
+    plugins shell out to curl for this endpoint too.
+
+    The key rides in a config on stdin (`-K -`), never in argv: a command line
+    is readable by any process running as the same user.
+    """
+    cfg = (
+        f'url = "{url}"\n'
+        f'header = "Authorization: Bearer {key}"\n'
+        f'header = "Accept: application/json"\n'
+        f'silent\nshow-error\nmax-time = {BALANCE_TIMEOUT}\n'
+        f'write-out = "\\n%{{http_code}}"\n'
+    )
+    try:
+        r = subprocess.run(
+            ["curl.exe", "-K", "-"], input=cfg, capture_output=True, text=True,
+            errors="replace", timeout=BALANCE_TIMEOUT + 5,
+            creationflags=CREATE_NO_WINDOW,
+        )
+    except FileNotFoundError:
+        raise RuntimeError("curl.exe not found on PATH") from None
+    except subprocess.TimeoutExpired:
+        raise TimeoutError("curl timed out") from None
+
+    body, _, code = r.stdout.rpartition("\n")
+    code = code.strip()
+    if not code.isdigit():
+        raise RuntimeError((r.stderr or "curl returned no status").strip()[:200])
+    if not code.startswith("2"):
+        if "cloudflare" in body.lower() or "browser_signature_banned" in body:
+            raise _BlockedError(f"edge blocked the request (HTTP {code})")
+        raise urllib.error.HTTPError(url, int(code), f"HTTP {code}", None, None)
+    return json.loads(body)
+
+
+def _bearer_get(url: str, key: str) -> dict:
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"Bearer {key}",
+        "Accept": "application/json",
+    })
+    with _NO_PROXY_OPENER.open(req, timeout=BALANCE_TIMEOUT) as resp:
+        return json.loads(resp.read())
+
+
+def _balance_error(result: dict, e: Exception) -> dict:
+    """One place that turns a failure into a stable code the dashboard can
+    branch on, plus the full text for the row's tooltip."""
+    if isinstance(e, urllib.error.HTTPError):
+        result["error_code"] = f"http_{e.code}"  # 401 = bad key, 403 = no plan
+        result["error_message"] = f"HTTP {e.code}"
+    elif isinstance(e, _BlockedError):
+        result["error_code"] = "blocked"
+        result["error_message"] = str(e)
+    elif isinstance(e, json.JSONDecodeError):
+        result["error_code"] = "bad_response"
+        result["error_message"] = "response was not JSON"
+    else:
+        result["error_code"] = "network"
+        result["error_message"] = str(e)[:200]
+    return result
+
+
+CHAT_CONFIG_PATH = os.path.join(
+    os.environ.get("APPDATA", ""), "monitor_chat", "config.json"
+)
+
+
+def _deepseek_key() -> str:
+    """Env var first, else the chat backend's config — it's the same key, and
+    keeping one copy means it can't drift. The chat backend lives on Main only,
+    so on other devices this is env-var or nothing."""
+    key = os.environ.get("DEEPSEEK_API_KEY", "")
+    if key:
+        return key
+    try:
+        with open(CHAT_CONFIG_PATH, encoding="utf-8") as f:
+            return json.load(f).get("api_key", "") or ""
+    except Exception:
+        return ""
+
+
+# The hosts below are deliberately NOT configurable, unlike every other check's
+# URL. These two requests carry an Authorization header, and the agent takes
+# POST /config from anyone who can reach the port — a configurable URL would let
+# that anyone point the check at a server they control and harvest the key.
+# A mirror/proxy would have to be a code change here, not a config edit.
+DEEPSEEK_BALANCE_URL = "https://api.deepseek.com/user/balance"
+
+
+def check_deepseek(low_balance: float | None = None) -> dict:
+    # Key fingerprint and low_balance are both in the cache key: the first so a
+    # swapped key can't inherit the old account's numbers, the second so an
+    # edit in the dashboard lands on the next poll instead of up to TTL later.
+    key = _deepseek_key()
+    return _cached_balance(
+        f"deepseek:{_key_fingerprint(key)}:{low_balance}",
+        lambda: _fetch_deepseek(key, low_balance),
+    )
+
+
+def _fetch_deepseek(key: str, low_balance: float | None) -> dict:
+    result = {
+        "online": False, "balance": None, "currency": None,
+        "granted_balance": None, "topped_up_balance": None,
+        "is_available": None, "level": "ok",
+        "error_code": None, "error_message": None,
+    }
+    if not key:
+        result["error_code"] = "no_key"
+        result["error_message"] = "DEEPSEEK_API_KEY not set (and no chat config)"
+        return result
+    try:
+        data = _bearer_get(DEEPSEEK_BALANCE_URL, key)
+    except Exception as e:
+        return _balance_error(result, e)
+
+    # One entry per currency; a top-up account has exactly one.
+    infos = data.get("balance_infos") or []
+    if not infos:
+        result["error_code"] = "bad_response"
+        result["error_message"] = "no balance_infos in response"
+        return result
+    info = next((i for i in infos if i.get("currency") == "CNY"), infos[0])
+    result.update(
+        online=True,
+        balance=info.get("total_balance"),
+        currency=info.get("currency"),
+        granted_balance=info.get("granted_balance"),
+        topped_up_balance=info.get("topped_up_balance"),
+        is_available=data.get("is_available"),
+    )
+    # is_available is the vendor's own "can this account still make calls" —
+    # a harder signal than any threshold we'd pick, so it wins.
+    if result["is_available"] is False:
+        result["level"] = "bad"
+        return result
+    # Off by default — "low" depends on how fast you burn it, so the threshold
+    # comes from the service config rather than a guess baked in here.
+    try:
+        if low_balance is not None and float(result["balance"]) <= float(low_balance):
+            result["level"] = "warn"
+    except (TypeError, ValueError):
+        pass
+    return result
+
+
+# opencode.ai/zen/go is the subscription gateway ("OpenCode Go"): no balance,
+# just three rolling allowance windows. The endpoint is undocumented — only
+# /v1/usage answers, everything else 404s — so the window keys are matched a
+# little leniently rather than pinned to one spelling.
+OPENCODE_USAGE_URL = "https://opencode.ai/zen/go/v1/usage"
+OPENCODE_WINDOWS = ("rolling", "weekly", "monthly")
+OPENCODE_WINDOW_ALIASES = {
+    "rolling": ("rolling", "5h", "hourly", "short"),
+    "weekly": ("weekly", "week", "wk"),
+    "monthly": ("monthly", "month", "mo"),
+}
+QUOTA_WARN_PERCENT = 65  # same yellow threshold the metric bars use
+
+
+CLAUDE_SETTINGS_PATH = os.path.join(
+    os.path.expanduser("~"), ".claude", "settings.json"
+)
+OPENCODE_GATEWAY_HOST = "opencode.ai"
+
+
+def _key_from_claude_settings() -> str:
+    """cc-switch materialises the active provider into the *tool's* own config
+    rather than making tools read its database, so while Claude Code is pointed
+    at the opencode gateway its key is sitting right there.
+
+    The base-URL guard is the load-bearing part: flip cc-switch to another
+    provider and that same field holds a foreign key, which must never be sent
+    to opencode.ai. Guard fails → no key → the bar says so, instead of quietly
+    querying someone else's account.
+    """
+    try:
+        with open(CLAUDE_SETTINGS_PATH, encoding="utf-8") as f:
+            env = json.load(f).get("env") or {}
+    except Exception:
+        return ""
+    u = urllib.parse.urlparse(env.get("ANTHROPIC_BASE_URL", ""))
+    # https is required: over plain http this would put the key on the wire in
+    # cleartext. Host must match exactly — "opencode.ai.evil.com" parses to a
+    # different netloc, so the equality check already rejects it.
+    if u.scheme != "https" or u.netloc != OPENCODE_GATEWAY_HOST:
+        return ""
+    return env.get("ANTHROPIC_API_KEY", "") or ""
+
+
+def _opencode_key() -> str:
+    """Both env names are accepted because the surrounding tooling split on
+    them: OPENCODE_GO_API_KEY is what the plugin ecosystem asks for, and
+    OPENCODE_API_KEY is what this machine's dsh config declares."""
+    for name in ("OPENCODE_API_KEY", "OPENCODE_GO_API_KEY"):
+        if os.environ.get(name):
+            return os.environ[name]
+    return _key_from_claude_settings()
+
+
+def check_opencode() -> dict:
+    key = _opencode_key()
+    return _cached_balance(
+        f"opencode:{_key_fingerprint(key)}", lambda: _fetch_opencode(key)
+    )
+
+
+def _fetch_opencode(key: str) -> dict:
+    result = {
+        "online": False, "level": "ok", "worst_percent": None,
+        "error_code": None, "error_message": None,
+    }
+    for window in OPENCODE_WINDOWS:
+        result[f"{window}_percent"] = None
+        result[f"{window}_status"] = None
+        result[f"{window}_resets_at"] = None
+
+    if not key:
+        result["error_code"] = "no_key"
+        result["error_message"] = "OPENCODE_API_KEY not set (and Claude Code isn't on the opencode gateway)"
+        return result
+    try:
+        data = _curl_get(OPENCODE_USAGE_URL, key)
+    except Exception as e:
+        return _balance_error(result, e)  # 401 = bad key, 403 = no Go plan
+
+    usage = data.get("usage") or data.get("quota") or data
+    if not any(isinstance(usage.get(a), dict)
+               for w in OPENCODE_WINDOWS for a in OPENCODE_WINDOW_ALIASES[w]):
+        result["error_code"] = "bad_response"
+        result["error_message"] = "no usage windows in response"
+        return result
+    result["online"] = True
+    worst = 0.0
+    for window in OPENCODE_WINDOWS:
+        win = {}
+        for alias in OPENCODE_WINDOW_ALIASES[window]:
+            if isinstance(usage.get(alias), dict):
+                win = usage[alias]
+                break
+        pct = win.get("percent")
+        if not isinstance(pct, (int, float)):
+            pct = None
+        status = win.get("status")
+        result[f"{window}_percent"] = round(pct, 1) if pct is not None else None
+        result[f"{window}_status"] = status
+        result[f"{window}_resets_at"] = win.get("resetsAt") or win.get("resets_at")
+        if pct is not None:
+            worst = max(worst, pct)
+        if status and status != "ok":
+            result["level"] = "warn"
+    if worst:
+        result["worst_percent"] = round(worst, 1)
+        if worst >= 100:
+            result["level"] = "bad"
+        elif worst >= QUOTA_WARN_PERCENT and result["level"] == "ok":
+            result["level"] = "warn"
+    return result
+
+
 # Service check dispatcher
 _CHECK_MAP = {
     "port": lambda cfg: check_port(cfg["host"], cfg["port"]),
     "maa": lambda cfg: check_maa(cfg["process_name"], cfg["log_dir"], cfg["log_glob"]),
     "maa_alerts": lambda cfg: check_maa_alerts(cfg["log_dir"], cfg["log_glob"]),
+    "process": lambda cfg: check_process(cfg["process_name"], cfg.get("cmdline_match")),
+    "happy": lambda cfg: check_happy(cfg.get("home_dir")),
     "maaend": lambda cfg: check_maaend(cfg["process_name"], cfg["log_dir"], cfg["log_glob"]),
     "adguard": lambda cfg: check_adguard(cfg["api_url"]),
     "syncthing": lambda cfg: check_syncthing(cfg["api_url"]),
     "utorrent": lambda cfg: check_utorrent(cfg["api_url"]),
     "webdav": lambda cfg: check_webdav(cfg["url"]),
+    "deepseek": lambda cfg: check_deepseek(cfg.get("low_balance")),
+    "opencode": lambda cfg: check_opencode(),
 }
 
 
@@ -841,14 +1321,8 @@ def run_service_checks(services_cfg: dict) -> dict:
 # Access control — source-address allowlist
 # ---------------------------------------------------------------------------
 # The agent has no authentication: whatever can reach the port can read every
-# metric and rewrite config.json. So the port is restricted to a set of source
-# networks — loopback only by default.
-#
-# To let a dashboard on another machine reach this agent, list the network it
-# will be calling from, e.g. a LAN or VPN range. Every agent that the dashboard
-# polls needs the range the dashboard's traffic arrives from:
-#
-#     set MONITOR_ALLOW_NETS=10.0.0.0/24,127.0.0.1/32
+# metric and rewrite config.json. So the port itself is restricted to the
+# ZeroTier overlay plus loopback — the only clients are our own machines.
 #
 # The TCP peer address is what gets checked. X-Forwarded-For and X-Real-IP are
 # ordinary request headers that any client can set, so they never enter this
@@ -1002,15 +1476,13 @@ class MonitorHandler(BaseHTTPRequestHandler):
         """Lifecycle manager for the local chat backend (12358).
 
         Only the local agent acts as broker (localhost-only), and only when
-        chat_backend.py sits beside this file or under deploy/. The backend stays dead
+        chat_backend.py sits beside this file. The chat backend stays dead
         until asked — the console's expand triggers "start"; "stop" exists so
         tests can shut the elevated child down without shell elevation.
         """
         if self._client_ip() not in ("127.0.0.1", "::1"):
             return {"ok": False, "error": "forbidden"}
         script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chat_backend.py")
-        if not os.path.exists(script):
-            script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "deploy", "chat_backend.py")
         if not os.path.exists(script):
             return {"ok": False, "error": "no chat backend here"}
         if action == "stop":
@@ -1052,7 +1524,6 @@ class MonitorHandler(BaseHTTPRequestHandler):
 
 def do_ping(host: str) -> dict:
     """ARP for LAN, ICMP for remote. ARP miss on LAN = offline."""
-    ip = None
     try:
         ip = ipaddress.ip_address(host)
         is_private = ip.is_private
@@ -1124,7 +1595,7 @@ def main():
     global _allowed_networks
 
     parser = argparse.ArgumentParser(description="Device monitoring agent")
-    parser.add_argument("--device", default=None, help="Device identity (defaults to hostname)")
+    parser.add_argument("--device", default=None, help="Device identity label (default: from hostname)")
     parser.add_argument("--port", type=int, default=9090, help="HTTP listen port (default: 9090)")
     args = parser.parse_args()
 
