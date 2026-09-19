@@ -7,11 +7,12 @@ Device Monitor 是一个面向 Windows 小主机、NAS 和家庭服务器的轻�
 - CPU、内存、磁盘、网络、运行时间、温度和 GPU 指标
 - TCP 端口、MAA / MaaEnd 日志、AdGuard Home、Syncthing、µTorrent 和 WebDAV 状态检查
 - DeepSeek 余额与 OpenCode Go 套餐额度查询（账户级，独立于任何一台设备显示）
-- 单文件 HTML 仪表盘，支持暗色与 CRT 主题、拖拽排序和轮询间隔设置
+- 单文件 HTML 仪表盘，内置 CRT 与终末地两套主题、拖拽排序和轮询间隔设置
 - 通过仪表盘读取和更新 Agent 的 `config.json`
 - 来源地址白名单：只处理指定网段的请求，默认仅本机回环；POST 强制 JSON
 - Windows 任务计划程序自启动和副屏全屏启动脚本
 - 可选本地聊天终端，支持 Anthropic 兼容 API；API 密钥不会写入前端
+- 聊天终端按主题切换人格（CRT 是初音未来，终末地是终末地工业的官方发言人）
 
 ## 架构
 
@@ -144,11 +145,29 @@ pip install -r requirements-chat.txt
 {
   "base_url": "https://api.anthropic.com",
   "api_key": "your-api-key",
-  "model": "claude-sonnet-4-5"
+  "model": "claude-sonnet-4-5",
+  "prompts": {}
 }
 ```
 
-API 密钥也可通过 `MONITOR_CHAT_API_KEY` 环境变量设置。聊天后端仅监听 `127.0.0.1`，并由本机 Agent 在仪表盘展开终端时按需启动。
+`base_url` / `model` 也可通过 `MONITOR_CHAT_BASE_URL`、`MONITOR_CHAT_MODEL` 环境变量设置，API 密钥用 `MONITOR_CHAT_API_KEY`。聊天后端仅监听 `127.0.0.1`，并由本机 Agent 在仪表盘展开终端时按需启动。
+
+### 按主题切换人格
+
+仪表盘每次发消息都会带上当前主题，后端据此选择 system prompt，并**按主题分别保存历史** —— 换主题开始一段新对话，而不是把上一个人格的聊天记录塞给新的那个人格。库里内置两套：
+
+| 主题 | 人格 |
+|---|---|
+| `crt` | 初音未来 |
+| `endfield` | 终末地工业的官方发言人 |
+
+主题名不认识、或请求里根本没带，都落到 `crt` 那套（那只是后端的兜底；仪表盘自己的默认主题是终末地）。要换成自己的 prompt，不必改代码，在配置里加一个 `prompts` 对象即可（键是主题名）：
+
+```json
+{
+  "prompts": { "endfield": "你是……", "default": "……" }
+}
+```
 
 ## 安全模型
 
@@ -176,13 +195,26 @@ python agent.py --port 9090
 
 更多信息见 [SECURITY.md](SECURITY.md)。
 
+## 主题与资源
+
+仪表盘是单个 HTML 文件，两套主题都在里面，默认是终末地：
+
+- **CRT** —— 终端配色，配 `assets/miku*/` 里的初音未来帧动画（三套配色，界面上可切换）。
+- **终末地** —— 浅色工业风，卡片底纹共用一张 `assets/ef-contour.jpg` 等高线图（靠 `background-attachment: fixed` 让所有卡片取到同一张背景的不同区域，而不是每张卡片各贴一份）。旗帜徽标是内联 SVG，不额外请求文件。
+
+`refs/` 放的是主题素材的来源与再生方法，不是运行时代码：官方素材怎么取的、配色怎么定的、卡片高度和聊天展开是怎么量出来的，连同全部再生脚本。仪表盘里指向它的注释也是这个意思 —— 想改主题外观时先看那里。[`refs/README.md`](refs/README.md) 是入口。
+
+`archive/` 是两份旧版本快照（五主题时代、以及更早的 Dark/CRT/Light 时代）。`refs/` 下的脚本是**幂等改写**而不是生成器 —— 它们只改指定声明，没法从零重建仪表盘，所以改之前留快照。
+
 ## 项目结构
 
 ```text
 agent.py                 # 指标与服务检查 Agent
-dashboard.html           # 单文件仪表盘
+dashboard.html           # 单文件仪表盘（CRT + 终末地两套主题）
 slow_metrics.ps1         # Windows 温度和 GPU 采集
-assets/                  # CRT 主题资源
+assets/                  # 主题资源：miku*/ 帧动画、ef-* 终末地素材
+refs/                    # 主题素材来源、配色与再生脚本
+archive/                 # 仪表盘旧版本快照
 deploy/                  # 示例配置、启动和安装脚本
 requirements.txt
 requirements-chat.txt
@@ -190,4 +222,4 @@ requirements-chat.txt
 
 ## 资源与许可
 
-`assets/` 中的角色图像由生成式 AI 制作。仓库目前未附带开源许可证，代码和资源默认保留所有权利。
+`assets/miku*/` 中的角色图像由生成式 AI 制作。`assets/ef-*` 与 `refs/` 下的徽标、底纹来自《明日方舟：终末地》官方素材（及其描摹），`refs/README.md` 逐项记录来源 —— 这些商标归鹰角网络 / Studio Montagne 所有，此处仅用于个人、非官方的界面。仓库目前未附带开源许可证，代码和资源默认保留所有权利。

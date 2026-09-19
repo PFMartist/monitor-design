@@ -1,14 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-default-theme="endfield" data-theme="endfield">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Device Monitor</title>
-<script>
-try { const d=document.documentElement; const t=localStorage.getItem("monitor_theme_factions_"+d.dataset.defaultTheme);
-  if (["crt","endfield"].includes(t)) d.dataset.theme=t;
-} catch (_) {}
-</script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -84,6 +79,31 @@ try { const d=document.documentElement; const t=localStorage.getItem("monitor_th
     font-weight: bold; color: var(--text); text-transform: uppercase;
   }
 
+  /* ========== THEME: Light ========== */
+  :root[data-theme="light"] {
+    --bg: #f0f2f5;
+    --card-bg: #ffffff;
+    --card-header-bg: #f5f6fa;
+    --text: #1a1c2e;
+    --text-dim: #8e8ea0;
+    --green: #27ae60;
+    --yellow: #e67e22;
+    --amber: #d35400;
+    --red: #c0392b;
+    --blue: #2980b9;
+    --orange: #d35400;
+    --purple: #7c5cbf;
+    --header-bg: #e2e4ea;
+    --header-border: #d0d2da;
+    --card-border: #e0e2ec;
+    --bar-track: #e8eaf2;
+    --input-bg: #ffffff;
+    --input-border: #c8cad4;
+    --svc-sub-bg: #f8f9fc;
+    --toggle-inactive: #c0c2cc;
+    --overlay-bg: rgba(0,0,0,0.3);
+    --btn-cancel-bg: #ddd;
+  }
 
   /* The page itself never scrolls. Header / cards / bottom panel are one flex
      column filling the viewport; only the card area scrolls, and only when the
@@ -506,11 +526,7 @@ try { const d=document.documentElement; const t=localStorage.getItem("monitor_th
   .msg .txt { flex: 1; word-break: break-word; white-space: pre-wrap; }
   .msg.err .txt { color: var(--red); }
 
-  /* The grid scrolls only when the cards genuinely cannot fit; the
-   scrollbar itself is suppressed — see refs/fit_chat.py. */
-#grid::-webkit-scrollbar { width: 0; height: 0; }
-
-/* ---------- responsive ---------- */
+  /* ---------- responsive ---------- */
   @media (max-width: 600px) {
     #grid { grid-template-columns: 1fr; }
     #bottom-row { grid-template-columns: 1fr; }
@@ -526,507 +542,18 @@ try { const d=document.documentElement; const t=localStorage.getItem("monitor_th
   .gpu-warn   { color: var(--yellow); }
   .gpu-amber  { color: var(--amber); }
   .gpu-hot    { color: var(--red); }
-
-/* ========================================================================
-   FACTION THEMES — 2026-09
-   Fan-made, unofficial visual adaptations. UI colours below are
-   interpretation, not official brand specifications. Both themes run on
-   pure CSS + static inline SVG; no web font, animation loop, blur filter or
-   canvas. The two faction emblems are vector traces of the reference
-   bitmaps published on PRTS (prts.wiki) — see refs/README.md for sources.
-   Existing Dark / CRT / Light selectors and transport code are retained.
-   ======================================================================== */
-.theme-only, .faction-wordmark, #faction-mark, #faction-identity,
-#themed-scenery, .node-index, .node-footer, .themed-label { display: none; }
-#theme-btn, #gear-btn { flex: none; }
-#header .brand-title { display: flex; align-items: center; gap: 12px; }
-.table-scroll { max-width: 100%; overflow-x: auto; }
-[role="button"]:focus-visible {
-  outline: 2px solid var(--blue); outline-offset: 3px;
-}
-
-/* Endfield's light surfaces carry the official contour field — the same
-   graphic the game and its site are built on, taken straight from the
-   official stylesheet (see refs/fetch_assets.py for the source URL).
-
-   The source is a wide terrain composition rather than a seamless tile, so
-   background-size: cover crops it per card: each one frames a different
-   fragment of the terrain instead of repeating the same motif. */
-:root[data-theme="endfield"] {
-  --contour: url("assets/ef-contour.jpg"); color-scheme: light;
-  --bg: #191919;
-  --card-bg: #fafafa; --card-header-bg: #ffffff;
-  --text: #121212; --text-dim: #828282;
-  --green: #376d4c; --yellow: #99611c; --amber: #a24f23;
-  --red: #ab3830; --blue: #456f79; --orange: #ab5627; --purple: #745985;
-  --header-bg: #fafafa; --header-border: #121212;
-  --card-border: #8a8a8a; --bar-track: #d9d9d9;
-  --input-bg: #ffffff; --input-border: #b2b2b2; --svc-sub-bg: #e6e6e6;
-  --toggle-inactive: #b2b2b2; --overlay-bg: rgba(10,13,7,.82);
-  --btn-cancel-bg: #d9d9d9; --radius: 3px; --gap: 16px;
-  --font: 'Bahnschrift', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
-  --font-mono: 'Cascadia Code', 'Consolas', 'Liberation Mono', monospace;
-  --display-font: 'Bahnschrift', 'Arial Narrow', 'Segoe UI', 'Noto Sans CJK SC', sans-serif;
-  --accent: #fefa02; --accent-ink: #0a0a0a; --accent-dark: #b5b200;
-  --scene-ink: #b2b2b2; --on-dark: #f0f0f0; --on-dark-dim: #b2b2b2;
-  --dark-surface: #1f1f22; --dark-line: #35373c; --rule: #424242;
-}
-
-/* Shared structure, deliberately not a reskin of rounded SaaS cards. */
-:root[data-theme="endfield"] body {
-  isolation: isolate; font-size: 13px; height: 100vh; height: 100dvh;
-}
-:root[data-theme="endfield"] .theme-only { display: flex; }
-:root[data-theme="endfield"] .legacy-title,
-:root[data-theme="endfield"] .legacy-label { display: none; }
-:root[data-theme="endfield"] .themed-label { display: inline; }
-:root[data-theme="endfield"] #themed-scenery {
-  display: block; position: fixed; inset: 0; z-index: -1;
-  pointer-events: none; overflow: hidden;
-}
-#themed-scenery svg { position: absolute; width: 100%; height: 100%; }
-.endfield-scene { display: none; }
-:root[data-theme="endfield"] .endfield-scene { display: block; }
-:root[data-theme="endfield"] #header {
-  height: 66px; padding: 0 24px; gap: 10px; position: relative;
-}
-:root[data-theme="endfield"] #header h1 { letter-spacing: .05em; }
-:root[data-theme="endfield"] #faction-mark { display: block; width: 38px; height: 44px; flex: none; }
-:root[data-theme="endfield"] .faction-wordmark { display: flex; flex-direction: column; gap: 2px; }
-#brand-en { font: 800 17px/1.1 var(--display-font); letter-spacing: .065em; }
-#brand-cn { font: 10px/1.5 var(--font); letter-spacing: .16em; }
-:root[data-theme="endfield"] #header .center {
-  text-align: right; margin-right: 10px; font: 11px var(--font-mono);
-}
-:root[data-theme="endfield"] #last-update {
-  font: 14px var(--font-mono); padding-left: 15px; border-left: 1px solid currentColor;
-  font-variant-numeric: tabular-nums;
-}
-:root[data-theme="endfield"] #last-update::before {
-  content: 'UPDATED'; display: block; font: 8px var(--font-mono); letter-spacing: .17em; opacity: .75; margin-bottom: 3px;
-}
-:root[data-theme="endfield"] #theme-btn,
-:root[data-theme="endfield"] #gear-btn {
-  opacity: 1 !important; border: 1px solid currentColor; width: 32px; height: 32px;
-  padding: 5px !important; text-align: center; line-height: 20px; font-size: 16px !important;
-}
-:root[data-theme="endfield"] #header { border-bottom: 4px solid #fefa02; box-shadow: 0 1px 0 #121212; }
-:root[data-theme="endfield"] #brand-en { font-size: 17px; letter-spacing: -.035em; }
-:root[data-theme="endfield"] #faction-mark { width: 46px; height: 48px; color: #0a0a0a; background: #fefa02; padding: 4px; }
-:root[data-theme="endfield"] #theme-btn, :root[data-theme="endfield"] #gear-btn { border-color: #8a8a8a; }
-
-/* Operational heading: real device counts, not invented game resources. */
-#ops-strip { flex: none; align-items: center; gap: 17px; margin: 22px 24px 7px; min-height: 64px; }
-#section-code { align-self: stretch; width: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  color: var(--accent-ink); background: var(--accent); gap: 2px; border-radius: var(--radius); }
-#section-code b { font: 700 28px/1 var(--font-mono); }
-#section-code span { font: 8px var(--font-mono); letter-spacing: .1em; }
-#ops-heading { display: flex; flex-direction: column; gap: 3px; }
-#ops-eyebrow { font: 9px var(--font-mono); letter-spacing: .17em; color: var(--text-dim); }
-#ops-heading h2 { font: 700 27px/1.35 var(--display-font); letter-spacing: .07em; }
-#ops-count { display: flex; align-items: center; gap: 11px; padding-left: 18px; margin-left: auto; border-left: 1px solid var(--card-border); }
-#ops-count strong { font: 400 39px/1 var(--font-mono); letter-spacing: -.07em; font-variant-numeric: tabular-nums; }
-#ops-count strong span { font-size: 21px; opacity: .55; }
-#ops-count small { font-size: 10px; line-height: 1.6; letter-spacing: .04em; }
-#ops-count small span { display: block; font: 8px/1.6 var(--font-mono); letter-spacing: .09em; }
-:root[data-theme="endfield"] #ops-strip { color: var(--on-dark); --text-dim: var(--on-dark-dim); border-bottom: 1px solid #424242; padding-bottom: 14px; margin-bottom: 0; }
-:root[data-theme="endfield"] #ops-heading h2 { font-size: 26px; font-weight: 600; }
-:root[data-theme="endfield"] #ops-count strong { color: var(--accent); }
-:root[data-theme="endfield"] #ops-count { border-color: #6a6a6a; }
-
-/* Dense data is always straight and readable: only decoration is oblique. */
-:root[data-theme="endfield"] #grid {
-  padding: 16px 24px 18px; gap: 16px; grid-template-columns: repeat(var(--cols,3),minmax(0,1fr));
-  overflow-y: auto; overflow-x: hidden;
-  scrollbar-width: none; -ms-overflow-style: none;
-  align-items: stretch;
-}
-:root[data-theme="endfield"] .card { position: relative; min-width: 0; transition: none; display: flex; flex-direction: column; }
-:root[data-theme="endfield"] .card.hidden-card { display: none; }
-:root[data-theme="endfield"] .card.collapsed { align-self: start; }
-:root[data-theme="endfield"] .card-header { padding: 2px 14px; gap: 9px; position: relative; min-height: 39px; }
-:root[data-theme="endfield"] .node-index { display: flex; flex-direction: column; justify-content: center; align-items: center; flex: none; }
-.node-index small { font: 7px var(--font-mono); letter-spacing: .1em; }
-.node-index b { font: 400 20px/1.15 var(--font-mono); letter-spacing: -.04em; }
-:root[data-theme="endfield"] .device-name { font: 800 22px/1.2 var(--display-font); letter-spacing: -.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-:root[data-theme="endfield"] .uptime-text { font-size: 9px; padding-left: 5px; }
-:root[data-theme="endfield"] .uptime-text::before { content: 'UPTIME'; display: block; font-size: 7px; letter-spacing: .1em; margin-bottom: 3px; }
-:root[data-theme="endfield"] .status-dot { width: 7px; height: 7px; border-radius: 0; box-shadow: none; }
-:root[data-theme="endfield"] .status-dot.unknown { background: var(--text-dim); }
-:root[data-theme="endfield"] .card-body { padding: 7px 14px 6px; flex: 1; }
-:root[data-theme="endfield"] .metric-row { padding: 1px 0; min-height: 21px; gap: 10px; }
-:root[data-theme="endfield"] .metric-label { width: 43px; font: 600 10px var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-:root[data-theme="endfield"] .metric-value { font-size: 11px; width: 49px; font-variant-numeric: tabular-nums; }
-:root[data-theme="endfield"] .metric-bar { height: 7px; border-radius: 0; position: relative; }
-:root[data-theme="endfield"] .metric-bar-fill { border-radius: 0; }
-:root[data-theme="endfield"] .metric-bar::after { content: ''; position: absolute; inset: 0;
- background: repeating-linear-gradient(90deg,transparent 0,transparent calc(25% - 1px),var(--card-bg) calc(25% - 1px),var(--card-bg) 25%); pointer-events: none; }
-:root[data-theme="endfield"] .net-speed { font-size: 10px; white-space: nowrap; }
-:root[data-theme="endfield"] .net-row { border-top: 1px solid var(--bar-track); margin-top: 1px; padding-top: 2px; }
-:root[data-theme="endfield"] .section-title { display: flex; align-items: center; justify-content: space-between;
-  font: 600 9px var(--font-mono);
-  padding: 6px 8px; margin: 6px -2px 3px; letter-spacing: .1em; border-top: none; }
-:root[data-theme="endfield"] .section-title::after { content: 'SERVICE STATUS'; font-size: 7px; opacity: .7; font-weight: 400; }
-:root[data-theme="endfield"] .svc-row { min-height: 22px; padding: 1px 0; font-size: 11px; gap: 7px; }
-:root[data-theme="endfield"] .svc-row > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-:root[data-theme="endfield"] .svc-detail { font-size: 10px; min-width: 0; white-space: normal; text-align: right; overflow-wrap: anywhere; }
-:root[data-theme="endfield"] .svc-dot { width: 5px; height: 5px; border-radius: 0; }
-:root[data-theme="endfield"] .maa-alert { font-size: 10px; white-space: normal; padding: 1px 4px; outline: 1px solid currentColor; }
-:root[data-theme="endfield"] .node-footer { display: none; }
-.node-footer .node-state { color: var(--green); }
-.node-footer .node-state.stale { color: var(--yellow); }
-.node-footer .node-state.offline { color: var(--red); }
-.node-footer .node-state.unknown { color: var(--text-dim); }
-:root[data-theme="endfield"] .card.collapsed .node-footer { display: none; }
-:root[data-theme="endfield"] .card.dragging { opacity: .4; }
-:root[data-theme="endfield"] .card.drop-target-left { border-left: 4px solid var(--accent); }
-:root[data-theme="endfield"] .card.drop-target-right { border-right: 4px solid var(--accent); }
-:root[data-theme="endfield"] .offline-tag { font: 10px var(--font-mono); padding: 5px 16px; text-align: left; }
-:root[data-theme="endfield"] .card { border: 1px solid #8a8a8a; padding: 1px; background: #2e2e2e; border-radius: 4px; box-shadow: 0 3px 0 #121212; }
-:root[data-theme="endfield"] .card-header { background: #ffffff; border: 1px solid #d9d9d9; border-radius: 2px 2px 0 0; min-height: 0; padding: 1px 11px; }
-:root[data-theme="endfield"] .card-header::after { content: ''; position: absolute; right: 0; top: 0; border-style: solid; border-width: 0 11px 11px 0; border-color: transparent #fefa02 transparent transparent; }
-:root[data-theme="endfield"] .node-index { width: 30px; height: 34px; color: #0a0a0a; background: #fefa02; border: 1px solid #d0cc00; border-radius: 1px; }
-:root[data-theme="endfield"] .device-name { font-size: 22px; font-weight: 700; letter-spacing: .015em; }
-:root[data-theme="endfield"] .status-dot { transform: rotate(45deg); width: 6px; height: 6px; }
-:root[data-theme="endfield"] .card-body { background: #fafafa; padding: 7px 14px 6px; }
-/* Light surfaces carry the contour; the text sits on top unchanged. */
-:root[data-theme="endfield"] .card-header,
-:root[data-theme="endfield"] .card-body,
-:root[data-theme="endfield"] #dock-info,
-:root[data-theme="endfield"] .settings-panel {
-  background-image: var(--contour);
-  background-size: 2048px 2048px;
-  background-attachment: fixed;
-  /* 相对视口定位，而不是相对每个元素。默认的 scroll 会让每张卡片都从图的
-     左上角开始，于是每张卡片显示同一块纹样、看起来在重复；fixed 让卡片变成
-     同一张底图上的窗口，相邻卡片的花纹是连续的。 */
-  background-attachment: fixed;
-}
-:root[data-theme="endfield"] .metric-bar { height: 7px; border: 1px solid #b2b2b2; }
-:root[data-theme="endfield"] .bar-green { background: #6a6a6a; }
-:root[data-theme="endfield"] .section-title { color: #121212; background: #e6e6e6; border-left: 3px solid #8a8a8a; }
-:root[data-theme="endfield"] .node-footer { color: #b2b2b2; border: none; background: #1f1f22; padding: 8px 12px 5px;
-  --green: #c4d89c; --red: #ffad91; --yellow: #f0ca74; --text-dim: #b2b2b2; }
-:root[data-theme="endfield"] .card.offline { border-color: #ff7a6a; }
-:root[data-theme="endfield"] .card.stale { border-color: #d8a63c; }
-:root[data-theme="endfield"] .offline-tag { background: #f5c9bd; }
-
-/* Keep the existing bottom composition: CHAT above PLAN + CLIENTS. */
-:root[data-theme="endfield"] #bottom-row { grid-template-columns: minmax(0,1fr) 192px; padding: 0 24px 12px; gap: 16px; align-items: end; }
-:root[data-theme="endfield"] #dock-left { gap: 10px; }
-:root[data-theme="endfield"] #dock-info { padding: 0 14px; gap: 0; }
-:root[data-theme="endfield"] .dock-section { display: grid; grid-template-columns: 113px minmax(0,1fr); align-items: center; min-height: 35px; padding: 6px 0; }
-:root[data-theme="endfield"] .dock-section:has(#account-bar:empty),
-:root[data-theme="endfield"] .dock-section:has(#ping-bar:empty) { display: none; }
-:root[data-theme="endfield"] .dock-section + .dock-section { border-top: 1px solid var(--card-border); }
-:root[data-theme="endfield"] .dock-section:first-child:has(#account-bar:empty) + .dock-section { border-top: none; }
-:root[data-theme="endfield"] .dock-label { margin: 0; font: 9px var(--font); color: var(--text-dim); letter-spacing: .035em; }
-.dock-label .themed-label b { font-size: 11px; margin-right: 5px; color: var(--text); font-weight: 600; }
-:root[data-theme="endfield"] #account-inner,
-:root[data-theme="endfield"] #ping-inner { gap: 8px 23px; }
-:root[data-theme="endfield"] .acct-name,
-:root[data-theme="endfield"] .ping-name { font-size: 10px; font-weight: 500; }
-:root[data-theme="endfield"] .acct-value { font-size: 11px; font-weight: 600; }
-:root[data-theme="endfield"] .acct-dot,
-:root[data-theme="endfield"] .ping-dot { border-radius: 0; }
-:root[data-theme="endfield"] #dock-info { border: 1px solid #8d957b; box-shadow: inset 0 0 0 3px #dadfca; padding: 3px 15px; }
-
-/* Chat stays Miku. A themed terminal name does not change the AI persona. */
-:root[data-theme="endfield"] #console-dock { border-radius: var(--radius); border-color: var(--rule); }
-:root[data-theme="endfield"] #console-head { min-height: 38px; padding: 7px 13px; }
-:root[data-theme="endfield"] #console-title { display: flex; align-items: center; gap: 10px; font: 600 11px var(--font); letter-spacing: .055em; }
-:root[data-theme="endfield"] #console-toggle-glyph { font: 12px var(--font-mono); color: inherit; }
-:root[data-theme="endfield"] #console-status { font-size: 9px; }
-:root[data-theme="endfield"] #console-output,
-:root[data-theme="endfield"] #console-prompt {
-  background: var(--dark-surface); color: var(--on-dark);
-  --text: var(--on-dark); --text-dim: var(--on-dark-dim); --green: var(--chat-accent); --red: #ffa38e;
-  border-color: var(--dark-line); padding-left: 14px; padding-right: 14px;
-}
-:root[data-theme="endfield"] #console-output { scrollbar-color: var(--dark-line) var(--dark-surface); padding-top: 12px; padding-bottom: 12px; }
-:root[data-theme="endfield"] #console-dock.open #console-output { height: clamp(56px,7vh,80px); }
-:root[data-theme="endfield"] #console-output::-webkit-scrollbar { width: 6px; }
-:root[data-theme="endfield"] #console-output::-webkit-scrollbar-track { background: var(--dark-surface); border: none; }
-:root[data-theme="endfield"] #console-output::-webkit-scrollbar-thumb { background: var(--dark-line); border: none; }
-:root[data-theme="endfield"] #console-prompt { min-height: 36px; }
-:root[data-theme="endfield"] #console-input { font-size: 11px; caret-color: var(--chat-accent); }
-:root[data-theme="endfield"] #console-input::placeholder { color: var(--on-dark-dim); opacity: 1; }
-:root[data-theme="endfield"] .msg { padding: 3px 0; font: 11px/1.6 var(--font-mono); }
-:root[data-theme="endfield"] #console-dock { --chat-accent: #fefa02; border-color: #8a8a8a; }
-:root[data-theme="endfield"] #console-head { color: #121212; background: #e6e6e6; border-left: 5px solid #fefa02; position: relative; }
-:root[data-theme="endfield"] #console-head::after { content: ''; flex: none; height: 13px; width: 27px;
- background: repeating-linear-gradient(125deg,#8a8a8a 0 3px,transparent 3px 6px); margin-left: 8px; opacity: .8; }
-
-/* Static affiliation panel uses original geometric interpretation, not assets. */
-:root[data-theme="endfield"] #faction-identity {
-  display: flex; flex-direction: column; min-height: 128px; padding: 12px 14px 9px;
-  background: var(--dark-surface); color: var(--on-dark); border: 1px solid var(--dark-line); position: relative;
-}
-#identity-code { font: 8px var(--font-mono); letter-spacing: .1em; color: var(--on-dark-dim); display: flex; justify-content: space-between; }
-#identity-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 11px 0; }
-#identity-seal { width: 38px; height: 48px; flex: none; }
-#identity-name { font: 800 16px/1.05 var(--display-font); letter-spacing: -.015em; }
-#identity-name small { display: block; font: 8px/1.5 var(--font-mono); letter-spacing: .1em; margin-top: 4px; }
-#identity-bottom { border-top: 1px solid var(--dark-line); padding-top: 7px; display: flex; align-items: center; justify-content: space-between; gap: 6px; font: 8px var(--font-mono); color: var(--on-dark-dim); }
-#identity-state-dot { width: 5px; height: 5px; background: var(--on-dark-dim); flex: none; }
-#identity-state-dot.online { background: #b7dbbb; }
-#identity-state-dot.stale { background: #f3ce82; }
-#identity-state-dot.offline { background: #ff9e88; }
-#identity-node-label { margin-left: auto; }
-:root[data-theme="endfield"] #faction-identity { background: #fefa02; color: #0a0a0a; border: 1px solid #d0cc00; border-radius: 3px; --on-dark-dim: #4a4700; --dark-line: #c8c400; }
-:root[data-theme="endfield"] #identity-seal { width: 34px; height: 34px; }
-:root[data-theme="endfield"] #identity-name { font-size: 19px; letter-spacing: -.06em; }
-:root[data-theme="endfield"] #identity-state-dot.online { background: #2f7d4f; }
-:root[data-theme="endfield"] #identity-state-dot.stale { background: #925b20; }
-:root[data-theme="endfield"] #identity-state-dot.offline { background: #a63829; }
-#view-footer { flex: none; margin: 0 24px; height: 26px; align-items: center; justify-content: space-between; gap: 12px; font: 8px var(--font-mono); letter-spacing: .07em; color: var(--text-dim); }
-:root[data-theme="endfield"] #view-footer { color: #9a9a9a; }
-#demo-badge { display: none; }
-:root[data-preview="true"] #demo-badge { display: inline; padding: 3px 6px; color: var(--accent-ink); background: var(--accent); font: 10px var(--font); letter-spacing: 0; }
-
-/* Settings use the same surface and colour semantics as their parent theme. */
-:root[data-theme="endfield"] .settings-panel { width: 780px; padding: 22px 24px; border-radius: var(--radius); border-top: 4px solid var(--accent); box-shadow: 0 14px 50px #0005; }
-:root[data-theme="endfield"] .settings-panel h2 { font-size: 17px; }
-:root[data-theme="endfield"] .settings-panel input,
-:root[data-theme="endfield"] .settings-panel textarea,
-:root[data-theme="endfield"] .settings-panel select,
-:root[data-theme="endfield"] .settings-panel button { border-radius: var(--radius) !important; }
-:root[data-theme="endfield"] #dev-table { min-width: 650px; }
-:root[data-theme="endfield"] .settings-panel input:focus-visible,
-:root[data-theme="endfield"] .settings-panel textarea:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
-:root[data-theme="endfield"] .toggle-track { border-radius: 2px; height: 18px; }
-:root[data-theme="endfield"] .toggle-thumb { border-radius: 0; height: 14px; }
-:root[data-theme="endfield"] .btn-icon,
-:root[data-theme="endfield"] .btn-reset { border-color: #b28e7d; }
-:root[data-theme="endfield"] .btn-icon:hover { background: #c6533318; }
-:root[data-theme="endfield"] .btn-add { background: var(--svc-sub-bg); color: var(--text); border-color: var(--input-border) !important; padding: 6px 10px; cursor: pointer; }
-:root[data-theme="endfield"] .btn-save { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
-:root[data-theme="endfield"] .svc-none { color: var(--text-dim); }
-:root[data-theme="endfield"] .svc-sub button { color: var(--text) !important; background: var(--input-bg) !important; border-color: var(--input-border) !important; }
-
-/* No page overflow on desktops; only cards scroll when genuinely necessary. */
-@media (max-height: 880px) and (min-width: 901px) {
-  :root[data-theme="endfield"] #header { height: 55px; }
-  :root[data-theme="endfield"] #ops-strip { margin-top: 12px; min-height: 46px; }
-  :root[data-theme="endfield"] #section-code { width: 41px; }
-  :root[data-theme="endfield"] #ops-heading h2 { font-size: 23px; }
-  :root[data-theme="endfield"] #grid { padding-top: 11px; }
-  :root[data-theme="endfield"] .card-header { min-height: 39px; padding-top: 4px; padding-bottom: 4px; }
-  :root[data-theme="endfield"] .card-body { padding-top: 7px; padding-bottom: 5px; }
-  :root[data-theme="endfield"] .metric-row { min-height: 18px; padding-top: 0; padding-bottom: 0; }
-  :root[data-theme="endfield"] .svc-row { min-height: 18px; padding-top: 1px; padding-bottom: 1px; }
-  :root[data-theme="endfield"] .section-title { margin-top: 7px; margin-bottom: 4px; }
-  :root[data-theme="endfield"] #bottom-row { padding-bottom: 5px; }
-  :root[data-theme="endfield"] #view-footer { height: 21px; }
-}
-@media (max-width: 1050px) {
-  :root[data-theme="endfield"] #header .center { font-size: 10px; margin-right: 0; }
-  :root[data-theme="endfield"] #bottom-row { grid-template-columns: minmax(0,1fr) 162px; }
-  :root[data-theme="endfield"] #identity-name { font-size: 13px; }
-  :root[data-theme="endfield"] #identity-seal { width: 30px; }
-  :root[data-theme="endfield"] #identity-center { gap: 7px; }
-}
-@media (max-width: 900px) {
-  :root[data-theme="endfield"] #grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  :root[data-theme="endfield"] #grid[data-columns="1"] { grid-template-columns: 1fr; }
-  :root[data-theme="endfield"] #header { padding: 0 16px; height: 59px; gap: 7px; }
-  :root[data-theme="endfield"] #header .center { display: none; }
-  :root[data-theme="endfield"] #header .brand-title { margin-right: auto; }
-  :root[data-theme="endfield"] #ops-strip { margin: 13px 16px 0; min-height: 48px; }
-  :root[data-theme="endfield"] #ops-heading h2 { font-size: 22px; }
-  :root[data-theme="endfield"] #ops-count strong { font-size: 29px; }
-  :root[data-theme="endfield"] #grid { padding: 12px 16px; }
-  :root[data-theme="endfield"] #ops-strip { padding-bottom: 4px; }
-     clipping the second card row. */
-     Island's does not; at this width it is the difference between fitting and
-  /* Endfield's ops strip carries an extra 14 px of bottom padding that Rhodes
-  :root[data-theme="endfield"] #view-footer { height: 15px; }
-  /* Two-column layout doubles the vertical demand, so it needs the compacted
-     chrome the short-viewport query uses — otherwise an expanded chat pushes
-     the second card row out of the grid. */
-  :root[data-theme="endfield"] #header { height: 52px; }
-  :root[data-theme="endfield"] #ops-strip { margin: 8px 16px 0; min-height: 40px; }
-  :root[data-theme="endfield"] #section-code { width: 38px; }
-  :root[data-theme="endfield"] #ops-heading h2 { font-size: 20px; }
-  :root[data-theme="endfield"] #view-footer { height: 18px; }
-  :root[data-theme="endfield"] #bottom-row { padding-bottom: 5px; }
-  :root[data-theme="endfield"] #console-dock.open #console-output { height: clamp(48px, 6vh, 72px); }
-  :root[data-theme="endfield"] #console-prompt { min-height: 30px; }
-  :root[data-theme="endfield"] #bottom-row { padding: 0 16px 7px; }
-  :root[data-theme="endfield"] #view-footer { margin: 0 16px; }
-  :root[data-theme="endfield"] .dock-section { grid-template-columns: 91px minmax(0,1fr); }
-  :root[data-theme="endfield"] .dock-label .themed-label b { display: block; font-size: 10px; }
-}
-@media (max-width: 640px) {
-  :root[data-theme="endfield"] #header { height: 57px; padding: 0 12px; gap: 6px; }
-  :root[data-theme="endfield"] #header .brand-title { gap: 8px; }
-  :root[data-theme="endfield"] #faction-mark { width: 27px; height: 34px; }
-  :root[data-theme="endfield"] #brand-en { font-size: 12px; }
-  :root[data-theme="endfield"] #brand-cn { font-size: 8px; letter-spacing: .03em; }
-  :root[data-theme="endfield"] #last-update,
-  :root[data-theme="endfield"] #theme-btn { display: none; }
-  :root[data-theme="endfield"] #gear-btn { width: 29px; height: 29px; line-height: 17px; }
-  :root[data-theme="endfield"] #ops-strip { margin: 11px 12px 0; gap: 9px; padding-bottom: 8px; min-height: 44px; }
-  :root[data-theme="endfield"] #section-code { width: 32px; }
-  :root[data-theme="endfield"] #section-code b { font-size: 21px; }
-  :root[data-theme="endfield"] #section-code span { font-size: 6px; }
-  :root[data-theme="endfield"] #ops-heading h2 { font-size: 19px; }
-  :root[data-theme="endfield"] #ops-eyebrow { font-size: 7px; letter-spacing: .02em; }
-  :root[data-theme="endfield"] #ops-count { margin-left: auto; padding-left: 9px; gap: 7px; }
-  :root[data-theme="endfield"] #ops-count strong { font-size: 25px; }
-  :root[data-theme="endfield"] #ops-count strong span { font-size: 14px; }
-  :root[data-theme="endfield"] #ops-count small { font-size: 8px; }
-  :root[data-theme="endfield"] #ops-count small span { font-size: 6px; }
-  :root[data-theme="endfield"] #grid { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
-  :root[data-theme="endfield"] #bottom-row { grid-template-columns: 1fr; padding: 0 12px 5px; }
-  :root[data-theme="endfield"] #faction-identity { display: none; }
-  :root[data-theme="endfield"] #dock-left { gap: 7px; }
-  :root[data-theme="endfield"] #dock-info { padding-left: 10px; padding-right: 10px; }
-  :root[data-theme="endfield"] .dock-section { grid-template-columns: 61px minmax(0,1fr); padding: 6px 0; }
-  :root[data-theme="endfield"] #account-inner,
-  :root[data-theme="endfield"] #ping-inner { gap: 6px 12px; }
-  :root[data-theme="endfield"] .acct-item { flex-wrap: wrap; column-gap: 4px; }
-  :root[data-theme="endfield"] .acct-value { font-size: 10px; }
-  :root[data-theme="endfield"] #view-footer { margin: 0 12px; height: 21px; letter-spacing: 0; font-size: 7px; }
-  :root[data-theme="endfield"] #view-footer .footer-long { display: none; }
-  :root[data-theme="endfield"] .settings-panel { padding: 16px; max-height: 88vh; }
-}
-@media (max-height: 540px) {
-  :root[data-theme="endfield"] #ops-strip { display: none; }
-  :root[data-theme="endfield"] #faction-identity { display: none; }
-  :root[data-theme="endfield"] #bottom-row { grid-template-columns: 1fr; }
-  :root[data-theme="endfield"] #view-footer { display: none; }
-}
-
 </style>
 </head>
 <body>
 
-
-<!-- Endfield Industries emblem: no vector exists on any official property
-     or on PRTS, so it is a trace of the highest-resolution reference bitmap
-     PRTS publishes. See refs/README.md for sources and provenance. -->
-<svg width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true" focusable="false">
-  <defs>
-    <symbol id="mark-endfield" viewBox="0 0 172 152">
-      <path fill="currentColor" d="M0 0 C3 0 5.9 0 9 0 C9 0.3 9 0.7 9 1 C6.7 1 4.4 1 2 1 C1.7 3 1.3 5 1 7 C0 6 -1 5 -2 4 C-1.3 3.7 -0.7 3.3 0 3 C0 2 0 1 0 0 Z " transform="translate(2,0)"/>
-      <path fill="currentColor" d="M0 0 C4 0 7.9 0 12 0 C12 0.3 12 0.7 12 1 C8 1 4.1 1 0 1 C0 0.7 0 0.3 0 0 Z " transform="translate(32,0)"/>
-      <path fill="currentColor" d="M0 0 C2.6 0 5.3 0 8 0 C8 0.3 8 0.7 8 1 C5.4 1 2.7 1 0 1 C0 0.7 0 0.3 0 0 Z " transform="translate(52,0)"/>
-      <path fill="currentColor" d="M0 0 C34.7 0 69.3 0 105 0 C105 1 105 2 105 3 C105.3 3.2 105.3 3.2 107 4 C106 5 105 6 104 7 C103.8 6 103.8 6 103 1 C69 1 35 1 0 1 C0 0.7 0 0.3 0 0 Z " transform="translate(65,0)"/>
-      <path fill="currentColor" d="M0 0 C2.5 2.2 3.4 3.7 4 7 C1.5 4.8 0.6 3.3 0 0 Z " transform="translate(3,7)"/>
-      <path fill="currentColor" d="M0 0 C0.3 0.7 0.7 1.3 1 2 C-0.4 4.6 -0.4 4.6 -2 7 C-2.3 6.3 -2.7 5.7 -3 5 C-1.6 2.4 -1.6 2.4 0 0 Z " transform="translate(168,7)"/>
-      <path fill="currentColor" d="M0 0 C22.1 0 44.2 0 67 0 C63 7 63 7 61.1 7.9 C58.4 8 55.7 8.1 53 8 C52.3 9.6 51.7 11.3 51 13 C51.4 13.1 51.4 13.1 53.2 13.4 C56 14 58.4 14.9 61 16 C61 16.7 61 17.3 61 18 C61.7 18 62.3 18 63 18 C63 18.7 63 19.3 63 20 C63.7 20 64.3 20 65 20 C65.4 20.5 65.9 20.9 66.3 21.4 C68.4 23.3 70.3 24.1 73 25 C73 25.7 73 26.3 73 27 C70.4 27 67.7 27 65 27 C65.3 28.6 65.3 28.6 67 37 C69 37.3 71 37.7 73 38 C70.7 39.2 68.5 40.2 66 41 C65.7 41.3 65.3 41.7 65 42 C65.7 42.3 66.3 42.7 67 43 C67 44.3 67 45.6 67 47 C58.3 47 49.7 47 41 47 C40.6 47 40.6 47 38.6 47.2 C30.9 47.6 30.9 47.6 28.3 45.7 C27.1 44.2 26 42.6 25 41 C24.5 40.8 24.5 40.8 22 40 C21.6 38.7 21.3 37.3 21 36 C20 34.5 19 33 17.9 31.5 C13.9 25.9 10.5 20.1 7.1 14.1 C6.8 13.5 6.8 13.5 5.4 11 C1.1 3.4 1.1 3.4 0 0 Z M41 1 C42 3 42 3 42 3 Z M44 1 C45 3 45 3 45 3 Z M56 1 C57 3 57 3 57 3 Z M12 2 C13 4 13 4 13 4 Z M48 2 C49 4 49 4 49 4 Z M10 3 C11 5 11 5 11 5 Z M37 3 C38 5 38 5 38 5 Z M43 3 C44 5 44 5 44 5 Z M51 3 C52 5 52 5 52 5 Z M8 4 C9 6 9 6 9 6 Z M47 4 C48 6 48 6 48 6 Z M5 5 C5.7 6.3 6.3 7.6 7 9 C7 8 7 7 7 6 C6.3 5.7 5.7 5.3 5 5 Z M36 5 C35.7 5.7 35.3 6.3 35 7 C35.7 7 36.3 7 37 7 C36.7 6.3 36.3 5.7 36 5 Z M39 5 C39 7 39 9 39 11 C39.7 10.7 40.3 10.3 41 10 C41 8.4 41 6.7 41 5 C40.3 5 39.7 5 39 5 Z M50 5 C51 7 51 7 51 7 Z M57 5 C58 7 58 7 58 7 Z M60 5 C61 7 61 7 61 7 Z M15 6 C16 8 16 8 16 8 Z M19 6 C21 10.3 23 14.6 25 19 C25.7 18.3 26.3 17.7 27 17 C25 13.4 23 9.7 21 6 C20.3 6 19.7 6 19 6 Z M29 6 C30 8 30 8 30 8 Z M42 6 C43 9 43 9 43 9 Z M25 7 C26 9 26 9 26 9 Z M46 7 C47 9 47 9 47 9 Z M49 7 C50 9 50 9 50 9 Z M11 8 C12 10 12 10 12 10 Z M26 9 C27 11 27 11 27 11 Z M18 10 C19 12 19 12 19 12 Z M29 10 C30 12 30 12 30 12 Z M41 10 C40.7 12.3 40.3 14.6 40 17 C40.7 17 41.3 17 42 17 C42 14.7 42 12.4 42 10 C41.7 10 41.3 10 41 10 Z M45 10 C46 13 46 13 46 13 Z M48 10 C49 12 49 12 49 12 Z M27 11 C28 13 28 13 28 13 Z M14 12 C15 14 15 14 15 14 Z M47 12 C48 15 48 15 48 15 Z M31 13 C32 15 32 15 32 15 Z M21 14 C22 16 22 16 22 16 Z M50 14 C51 17 51 17 51 17 Z M16 15 C17 17 17 17 17 17 Z M53 15 C54 17 54 17 54 17 Z M30 16 C31 18 31 18 31 18 Z M58 16 C59 19 59 19 59 19 Z M23 17 C24 19 24 19 24 19 Z M39 17 C38.7 17.7 38.3 18.3 38 19 C38.7 19 39.3 19 40 19 C39.7 18.3 39.3 17.7 39 17 Z M44 17 C44 18.6 44 20.3 44 22 C44.3 22 44.7 22 45 22 C45 20.4 45 18.7 45 17 C44.7 17 44.3 17 44 17 Z M46 17 C46 19.6 46 22.3 46 25 C46.3 25 46.7 25 47 25 C47 22.4 47 19.7 47 17 C46.7 17 46.3 17 46 17 Z M55 17 C56 20 56 20 56 20 Z M18 18 C19 20 19 20 19 20 Z M21 18 C22 20 22 20 22 20 Z M49 18 C50 20 50 20 50 20 Z M52 18 C53 21 53 21 53 21 Z M60 18 C61 21 61 21 61 21 Z M57 19 C58 22 58 22 58 22 Z M19 20 C20 22 20 22 20 22 Z M30 20 C31 22 31 22 31 22 Z M33 20 C34 22 34 22 34 22 Z M54 20 C55 23 55 23 55 23 Z M62 20 C63 22 63 22 63 22 Z M59 21 C60 24 60 24 60 24 Z M17 22 C18 24 18 24 18 24 Z M25 22 C26 24 26 24 26 24 Z M48 22 C49 25 49 25 49 25 Z M51 22 C52 25 52 25 52 25 Z M64 22 C65 24 65 24 65 24 Z M21 23 C22 25 22 25 22 25 Z M32 23 C33 25 33 25 33 25 Z M56 23 C57 26 57 26 57 26 Z M61 23 C61 25 61 27 61 29 C61.3 29 61.7 29 62 29 C62 27 62 25 62 23 C61.7 23 61.3 23 61 23 Z M18 24 C19 26 19 26 19 26 Z M26 24 C27 26 27 26 27 26 Z M43 24 C44 26 44 26 44 26 Z M53 25 C54 27 54 27 54 27 Z M58 25 C59 29 59 29 59 29 Z M25 26 C26 28 26 28 26 28 Z M31 26 C31 29 31 29 32.3 30.4 C32.9 30.8 33.4 31.2 34 31.7 C34.5 32.1 34.5 32.1 37 34 C37.7 33.3 38.3 32.7 39 32 C38.2 31.6 37.5 31.1 36.7 30.7 C34.4 29.3 32.8 28 31 26 Z M50 26 C50 28.6 50 31.3 50 34 C50.3 34 50.7 34 51 34 C51 31.4 51 28.7 51 26 C50.7 26 50.3 26 50 26 Z M45 27 C46 30 46 30 46 30 Z M55 27 C56 29 56 29 56 29 Z M24 28 C25 30 25 30 25 30 Z M37 28 C41 29 41 29 41 29 Z M47 28 C47 30.3 47 32.6 47 35 C47.3 35 47.7 35 48 35 C48 32.7 48 30.4 48 28 C47.7 28 47.3 28 47 28 Z M27 30 C27 31.3 27 32.6 27 34 C27.7 34.7 28.3 35.3 29 36 C29.3 34.7 29.7 33.4 30 32 C29 31.3 28 30.7 27 30 Z M30 30 C31 32 31 32 31 32 Z M44 30 C45 32 45 32 45 32 Z M56 30 C57 33 57 33 57 33 Z M63 30 C64 32 64 32 64 32 Z M53 31 C54 34 54 34 54 34 Z M51 35 C52 37 52 37 52 37 Z M32 36 C33 38 33 38 33 38 Z M48 36 C49 39 49 39 49 39 Z M55 36 C55.3 36.7 55.7 37.3 56 38 C56.7 37.7 57.3 37.3 58 37 C57 36.7 56 36.3 55 36 Z M30 37 C31 39 31 39 31 39 Z M33 41 C34 43 34 43 34 43 Z " transform="translate(13,9)"/>
-      <path fill="currentColor" d="M0 0 C0.7 0 1.3 0 2 0 C0.9 3 -0.2 5.3 -2 8 C-3 7.7 -4 7.3 -5 7 C-4.2 5.8 -3.4 4.7 -2.6 3.5 C-2.2 2.9 -1.7 2.2 -1.3 1.5 C-1.1 1.3 -1.1 1.3 0 0 Z " transform="translate(81,9)"/>
-      <path fill="currentColor" d="M0 0 C6.1 -0 12.1 -0 18.2 -0.1 C20.3 -0.1 22.3 -0.1 24.4 -0.1 C27.4 -0.1 30.3 -0.1 33.3 -0.1 C33.8 -0.1 33.8 -0.1 36.1 -0.1 C37 -0.1 37.8 -0.1 38.7 -0.1 C39.1 -0.1 39.1 -0.1 41 -0.1 C43 0 43 0 46 1 C47.7 0.7 49.3 0.4 51 0 C52.8 -0.1 54.5 -0.1 56.3 -0.1 C57.3 -0.1 58.3 -0.1 59.3 -0.1 C60.3 -0.1 61.3 -0.1 62.3 -0.1 C63.3 -0.1 64.4 -0.1 65.4 -0 C67.9 -0 70.5 -0 73 0 C73.2 0.5 73.2 0.5 74 3 C73.1 4.3 72.3 5.7 71.3 7 C69 10.6 67.2 14.6 65.4 18.5 C64 21 64 21 62 22 C61.3 23.6 60.6 25.3 60 27 C59 29 58 31 57 33 C54.5 31.9 52.9 30.9 50.9 29 C46.9 26.2 42.8 25.7 38 25 C38.7 25.1 39.4 25.3 40.2 25.4 C46.9 27 50.6 28.6 55 34 C54 37 54 37 52 39 C51 41.6 50 44.3 49 47 C36.5 47 23.9 47 11 47 C10.3 45.7 9.7 44.4 9 43 C7.3 42 7.3 42 5.4 41.2 C4.8 41 4.8 41 2 40 C5 39.1 5.9 39 9 40 C9 39.1 8.9 38.1 8.9 37.1 C9 34 9 34 11 32 C8.5 29.5 6.3 29 3 28 C3.3 27 3.7 26 4 25 C5.7 25.3 7.3 25.7 9 26 C9.3 25.5 9.6 24.9 9.9 24.4 C13.5 18.2 17.5 15 24 12 C24 10.7 24 9.4 24 8 C18.1 8 12.1 8 6 8 C5.7 9.6 5.3 11.3 5 13 C3.1 12.7 3.1 12.7 1 12 C0.7 11 0.3 10 0 9 C-2.1 7.8 -2.1 7.8 -4 7 C-2.7 4.7 -1.4 2.4 0 0 Z M6 1 C7 3 7 3 7 3 Z M5 3 C6 5 6 5 6 5 Z M25 3 C26 6 26 6 26 6 Z M12 4 C13 6 13 6 13 6 Z M30 10 C31 12 31 12 31 12 Z M44 12 C44 12.3 44 12.7 44 13 C45.7 13 47.3 13 49 13 C49 12.7 49 12.3 49 12 C47.3 12 45.7 12 44 12 Z M29 13 C30 15 30 15 30 15 Z M41 15 C45 16 45 16 45 16 Z M21 16 C22 18 22 18 22 18 Z M28 16 C29 19 29 19 29 19 Z M38 17 C37.7 17.5 37.7 17.5 36 20 C37 20 38 20 39 20 C39.7 19.3 40.3 18.7 41 18 C40 17.7 39 17.3 38 17 Z M20 18 C21 21 21 21 21 21 Z M34 18 C35 20 35 20 35 20 Z M44 18 C45 20 45 20 45 20 Z M35 20 C35 21.3 35 22.6 35 24 C35.7 24.3 36.3 24.7 37 25 C36.7 23.4 36.3 21.7 36 20 C35.7 20 35.3 20 35 20 Z M19 21 C19 22.6 19 24.3 19 26 C19.3 26 19.7 26 20 26 C20 24.4 20 22.7 20 21 C19.7 21 19.3 21 19 21 Z M27 22 C28 24 28 24 28 24 Z M53 24 C54 26 54 26 54 26 Z M35 32 C39 33 39 33 39 33 Z M28 34 C32 35 32 35 32 35 Z M41 35 C45 36 45 36 45 36 Z M21 39 C21 39.3 21 39.7 21 40 C22.7 40 24.3 40 26 40 C26 39.7 26 39.3 26 39 C24.3 39 22.7 39 21 39 Z M21 44 C21 44.3 21 44.7 21 45 C22.7 45 24.3 45 26 45 C26 44.7 26 44.3 26 44 C24.3 44 22.7 44 21 44 Z " transform="translate(84,9)"/>
-      <path fill="currentColor" d="" transform="translate(0,0)"/>
-      <path fill="currentColor" d="" transform="translate(0,0)"/>
-      <path fill="currentColor" d="M0 0 C2.5 2.2 3.4 3.7 4 7 C1.5 4.8 0.6 3.3 0 0 Z " transform="translate(7,14)"/>
-      <path fill="currentColor" d="M0 0 C0.3 0.7 0.7 1.3 1 2 C-0.4 4.6 -0.4 4.6 -2 7 C-2.3 6.3 -2.7 5.7 -3 5 C-1.6 2.4 -1.6 2.4 0 0 Z " transform="translate(164,14)"/>
-      <path fill="currentColor" d="M0 0 C1 1 2 2 3 3 C2.7 3.7 2.3 4.3 2 5 C1.3 3.4 0.7 1.7 0 0 Z " transform="translate(11,21)"/>
-      <path fill="currentColor" d="M0 0 C0.3 0.7 0.7 1.3 1 2 C0 3 -1 4 -2 5 C-1.3 3.4 -0.7 1.7 0 0 Z " transform="translate(160,21)"/>
-      <path fill="currentColor" d="M0 0 C2.5 2.2 3.4 3.7 4 7 C1.5 4.8 0.6 3.3 0 0 Z " transform="translate(14,26)"/>
-      <path fill="currentColor" d="M0 0 C0.3 0.7 0.7 1.3 1 2 C-0.4 4.6 -0.4 4.6 -2 7 C-2.3 6.3 -2.7 5.7 -3 5 C-1.6 2.4 -1.6 2.4 0 0 Z " transform="translate(157,26)"/>
-      <path fill="currentColor" d="" transform="translate(0,0)"/>
-      <path fill="currentColor" d="" transform="translate(0,0)"/>
-      <path fill="currentColor" d="M0 0 C2.5 2.2 3.4 3.7 4 7 C1.5 4.8 0.6 3.3 0 0 Z " transform="translate(18,33)"/>
-      <path fill="currentColor" d="M0 0 C0.3 0.7 0.7 1.3 1 2 C-0.4 4.6 -0.4 4.6 -2 7 C-2.3 6.3 -2.7 5.7 -3 5 C-1.6 2.4 -1.6 2.4 0 0 Z " transform="translate(153,33)"/>
-      <path fill="currentColor" d="" transform="translate(0,0)"/>
-      <path fill="currentColor" d="M0 0 C2.5 2.2 3.4 3.7 4 7 C1.5 4.8 0.6 3.3 0 0 Z " transform="translate(22,40)"/>
-      <path fill="currentColor" d="M0 0 C0.3 0.2 0.3 0.2 2 1 C1.7 1.7 1.3 2.3 1 3 C0.7 2 0.3 1 0 0 Z " transform="translate(40,40)"/>
-      <path fill="currentColor" d="M0 0 C0 3 0 3 0 3 Z " transform="translate(149,40)"/>
-      <path fill="currentColor" d="" transform="translate(0,0)"/>
-      <path fill="currentColor" d="" transform="translate(0,0)"/>
-      <path fill="currentColor" d="M0 0 C1 1 2 2 3 3 C2.7 3.7 2.3 4.3 2 5 C1.3 3.4 0.7 1.7 0 0 Z " transform="translate(26,47)"/>
-      <path fill="currentColor" d="" transform="translate(0,0)"/>
-      <path fill="currentColor" d="M0 0 C1.6 1.6 3.3 3.3 5 5 C4 5 3 5 2 5 C1.3 3.4 0.7 1.7 0 0 Z " transform="translate(37,50)"/>
-      <path fill="currentColor" d="M0 0 C6.3 0 12.5 0 19 0 C19 2.3 19 4.6 19 7 C15 7 11.1 7 7 7 C7 8 7 9 7 10 C10 10 12.9 10 16 10 C16 12 16 14 16 16 C13 16 10.1 16 7 16 C7 17 7 18 7 19 C7.9 19 8.7 19 9.6 19 C10.7 19 11.8 18.9 12.9 18.9 C14 18.9 15.1 18.9 16.3 18.9 C19 19 19 19 20 20 C20 22 20 24 20 26 C13.4 26 6.8 26 0 26 C0 17.4 0 8.8 0 0 Z " transform="translate(7,58)"/>
-      <path fill="currentColor" d="M0 0 C8 0 8 0 10.5 2.4 C11.2 3.4 11.8 4.4 12.5 5.5 C12.8 6 12.8 6 14.5 8.6 C15 9.4 15.5 10.2 16 11 C16.3 7.4 16.7 3.7 17 0 C34.6 -0.8 34.6 -0.8 40 4 C43 8.3 43.6 11.8 43 17 C40.7 21.5 38.5 23.8 34 26 C28.3 27.3 21.7 27.7 16 26 C12.2 22.5 10 18.8 8 14 C7.7 18 7.3 21.9 7 26 C4.7 26 2.4 26 0 26 C0 17.4 0 8.8 0 0 Z M25 7 C25 11 25 14.9 25 19 C31.6 19.2 31.6 19.2 35 17 C35.4 13.6 35.6 11.1 33.9 8.1 C31 6.4 28.3 6.8 25 7 Z " transform="translate(28,58)"/>
-      <path fill="currentColor" d="M0 0 C6.3 0 12.5 0 19 0 C19 2.3 19 4.6 19 7 C15 7 11.1 7 7 7 C7 8 7 9 7 10 C7.6 10 8.3 10 8.9 10 C9.8 10 10.6 9.9 11.4 9.9 C12.3 9.9 13.1 9.9 13.9 9.9 C16 10 16 10 17 11 C17 13 17 15 17 17 C14 17.3 11.1 17.7 8 18 C7.7 20.6 7.3 23.3 7 26 C4.7 26 2.4 26 0 26 C0 17.4 0 8.8 0 0 Z " transform="translate(72,58)"/>
-      <path fill="currentColor" d="M0 0 C3 0.1 3 0.1 4 1.1 C4.1 3 4.1 4.8 4.1 6.7 C4.1 7.8 4.1 8.9 4.1 10.1 C4.1 11.3 4.1 12.5 4.1 13.7 C4.1 14.9 4.1 16.1 4 17.3 C4 20.2 4 23.2 4 26.1 C1.4 26.1 -1.3 26.1 -4 26.1 C-4 22 -4 17.8 -4.1 13.7 C-4.1 12.5 -4.1 11.3 -4.1 10.1 C-4.1 9 -4.1 7.9 -4.1 6.7 C-4.1 5.6 -4.1 4.6 -4.1 3.5 C-3.9 -0.1 -3.7 0.2 0 0 Z " transform="translate(96,57.875)"/>
-      <path fill="currentColor" d="M0 0 C6.6 0 13.2 0 20 0 C20 2.3 20 4.6 20 7 C16 7 12.1 7 8 7 C8 8 8 9 8 10 C11 10 13.9 10 17 10 C17 12 17 14 17 16 C14 16 11.1 16 8 16 C8 17 8 18 8 19 C12 19 15.9 19 20 19 C20 21.3 20 23.6 20 26 C13.4 26 6.8 26 0 26 C0 17.4 0 8.8 0 0 Z " transform="translate(101,58)"/>
-      <path fill="currentColor" d="M0 0 C2.6 0 5.3 0 8 0 C8 6.3 8 12.5 8 19 C11.3 19 14.6 19 18 19 C18 12.7 18 6.5 18 0 C20.4 -0.1 22.7 -0.1 25.1 -0.2 C25.9 -0.2 26.6 -0.2 27.3 -0.3 C33.2 -0.3 37 1.3 41.4 5.1 C43.8 9.4 43.6 13.2 43 18 C41.6 21.5 40.6 22.6 37.4 24.6 C33.5 26.2 30.1 26.4 26 26.3 C25.2 26.3 24.5 26.3 23.7 26.3 C21.4 26.3 19 26.2 16.6 26.2 C15 26.2 13.4 26.2 11.8 26.1 C7.9 26.1 3.9 26.1 0 26 C0 17.4 0 8.8 0 0 Z M25 7 C25 11 25 14.9 25 19 C32.4 19.5 32.4 19.5 35.1 17.4 C36.3 14.2 36 12.3 35 9 C31.4 6.6 29.3 6.8 25 7 Z " transform="translate(122,58)"/>
-      <path fill="currentColor" d="M0 0 C0.7 0 1.3 0 2 0 C2 1.3 2 2.6 2 4 C1.3 4 0.7 4 0 4 C0 2.7 0 1.4 0 0 Z " transform="translate(22,86)"/>
-      <path fill="currentColor" d="M0 0 C1.3 0 2.7 0 4 0 C4 1.7 4 3.3 4 5 C1 5 1 5 -1 4 C-0.7 2.7 -0.3 1.4 0 0 Z " transform="translate(35,86)"/>
-      <path fill="currentColor" d="M0 0 C1.3 0.3 2.6 0.7 4 1 C3.7 2.3 3.3 3.6 3 5 C2 5 1 5 0 5 C0 3.3 0 1.7 0 0 Z M1 1 C2 3 2 3 2 3 Z " transform="translate(50,86)"/>
-      <path fill="currentColor" d="M0 0 C1.7 0 3.3 0 5 0 C4.7 1.7 4.3 3.3 4 5 C2.7 4.7 1.4 4.3 0 4 C0 2.7 0 1.4 0 0 Z " transform="translate(64,86)"/>
-      <path fill="currentColor" d="M0 0 C0.7 0.3 1.3 0.7 2 1 C2.3 2 2.7 3 3 4 C1.7 4 0.4 4 -1 4 C-0.7 2.7 -0.3 1.4 0 0 Z " transform="translate(80,86)"/>
-      <path fill="currentColor" d="M0 0 C1 0.3 2 0.7 3 1 C2.3 2.3 1.7 3.6 1 5 C0.7 3.3 0.3 1.7 0 0 Z " transform="translate(93,86)"/>
-      <path fill="currentColor" d="M0 0 C1.3 0.3 2.6 0.7 4 1 C3.7 2 3.3 3 3 4 C2 4.3 1 4.7 0 5 C0 3.3 0 1.7 0 0 Z " transform="translate(106,86)"/>
-      <path fill="currentColor" d="M0 0 C0.7 0 1.3 0 2 0 C2 1.7 2 3.3 2 5 C1.3 4.7 0.7 4.3 0 4 C0 2.7 0 1.4 0 0 Z " transform="translate(120,86)"/>
-      <path fill="currentColor" d="M0 0 C1 0 2 0 3 0 C3 1.7 3 3.3 3 5 C2 4.7 1 4.3 0 4 C0 2.7 0 1.4 0 0 Z " transform="translate(132,86)"/>
-      <path fill="currentColor" d="M0 0 C1 0.3 2 0.7 3 1 C2.7 2.3 2.3 3.6 2 5 C1.3 5 0.7 5 0 5 C-0.6 3.1 -0.6 3.1 -1 1 C-0.7 0.7 -0.3 0.3 0 0 Z " transform="translate(146,86)"/>
-      <path fill="currentColor" d="M0 0 C3.3 0 6.6 0 10 0 C10 0.3 10 0.7 10 1 C6.7 1 3.4 1 0 1 C0 0.7 0 0.3 0 0 Z " transform="translate(7,88)"/>
-      <path fill="currentColor" d="M0 0 C3.3 0 6.6 0 10 0 C10 0.3 10 0.7 10 1 C6.7 1 3.4 1 0 1 C0 0.7 0 0.3 0 0 Z " transform="translate(154,88)"/>
-      <path fill="currentColor" d="" transform="translate(0,0)"/>
-      <path fill="currentColor" d="M0 0 C1 1 2 2 3 3 C2.7 3.7 2.3 4.3 2 5 C1.3 3.3 0.7 1.7 0 0 Z " transform="translate(52,92)"/>
-      <path fill="currentColor" d="M0 0 C6.8 5.5 8.8 11.6 10 20 C10.1 23.6 10.1 23.6 10 26 C11 26.3 12 26.7 13 27 C13.3 25.9 13.6 24.9 13.9 23.8 C14.8 20.8 15.8 17.9 17 15 C16.1 14.9 15.1 14.7 14.1 14.6 C11 14 11 14 9 13 C9 12.3 9 11.7 9 11 C14.9 11.9 14.9 11.9 16 13 C16.7 10.7 17.3 8.4 18 6 C17.2 5.8 17.2 5.8 13 5 C13 4.3 13 3.7 13 3 C14 3 15 3 16 3 C16.7 2.3 17.3 1.7 18 1 C20.7 0.6 20.7 0.6 23.9 0.6 C25 0.5 26.1 0.5 27.2 0.4 C30 1 30 1 31.9 3.3 C33.1 6.3 33 7 32 10 C30.5 13.1 28.8 16.2 27.1 19.2 C26.6 20 26.2 20.9 25.7 21.7 C25.2 22.5 24.8 23.3 24.3 24.1 C23.9 24.8 23.5 25.6 23.1 26.3 C22 28 22 28 20 29 C18.7 31.3 17.5 33.7 16.4 36.1 C16.1 36.7 15.7 37.4 15.4 38.1 C14.6 39.7 13.8 41.4 13 43 C10 42 10 42 8.2 38.6 C7.9 37.8 7.5 37.1 7.2 36.4 C5.5 33 3.5 29.8 1.6 26.6 C0 24 -1.4 21.5 -2.9 18.9 C-5.2 14.9 -7.6 11 -10 7.1 C-13 2.1 -13 2.1 -13 1 C-3.7 -0.5 -3.7 -0.5 0 0 Z M19 2 C20 4 20 4 20 4 Z M28 2 C29 4 29 4 29 4 Z M20 4 C21 6 21 6 21 6 Z M29 5 C29 7.3 29 9.6 29 12 C29.3 12 29.7 12 30 12 C30 9.7 30 7.4 30 5 C29.7 5 29.3 5 29 5 Z M-7 6 C-6 8 -6 8 -6 8 Z M21 6 C22 8 22 8 22 8 Z M-5 9 C-4 11 -4 11 -4 11 Z M22 9 C23 12 23 12 23 12 Z M-3 12 C-2 14 -2 14 -2 14 Z M22 16 C22 17.7 22 19.3 22 21 C22.3 21 22.7 21 23 21 C23 19.3 23 17.7 23 16 C22.7 16 22.3 16 22 16 Z M21 22 C22 25 22 25 22 25 Z M15 23 C16 26 16 26 16 26 Z M9 28 C10 31 10 31 10 31 Z M13 30 C14 33 14 33 14 33 Z M8 31 C9 33 9 33 9 33 Z M11 36 C12 38 12 38 12 38 Z " transform="translate(74,92)"/>
-      <path fill="currentColor" d="M0 0 C3.4 -0.2 3.4 -0.2 7 0 C7.7 1 8.3 2 9 3 C8.6 3 8.6 3 6.6 2.9 C4 3 4 3 2 4 C1.3 2.7 0.7 1.4 0 0 Z " transform="translate(77,93)"/>
-      <path fill="currentColor" d="M0 0 C2 0 4 0 6 0 C5 1.7 4 3.3 3 5 C0 1.1 0 1.1 0 0 Z " transform="translate(105,93)"/>
-      <path fill="currentColor" d="M0 0 C0.3 0.2 0.3 0.2 2 1 C1.7 1.2 1.7 1.2 0 2 C0 1.3 0 0.7 0 0 Z " transform="translate(117,95)"/>
-      <path fill="currentColor" d="M0 0 C2.5 2.2 3.4 3.7 4 7 C1.5 4.8 0.6 3.3 0 0 Z " transform="translate(55,97)"/>
-      <path fill="currentColor" d="" transform="translate(0,0)"/>
-      <path fill="currentColor" d="" transform="translate(0,0)"/>
-      <path fill="currentColor" d="M0 0 C0.3 0.7 0.7 1.3 1 2 C0 3 -1 4 -2 5 C-1.3 3.3 -0.7 1.7 0 0 Z " transform="translate(115,99)"/>
-      <path fill="currentColor" d="M0 0 C2.5 2.2 3.4 3.7 4 7 C1.5 4.8 0.6 3.3 0 0 Z " transform="translate(59,104)"/>
-      <path fill="currentColor" d="M0 0 C0.3 0.7 0.7 1.3 1 2 C-0.4 4.6 -0.4 4.6 -2 7 C-2.3 6.3 -2.7 5.7 -3 5 C-1.6 2.4 -1.6 2.4 0 0 Z " transform="translate(112,104)"/>
-      <path fill="currentColor" d="M0 0 C2.5 2.2 3.4 3.7 4 7 C1.5 4.8 0.6 3.3 0 0 Z " transform="translate(63,111)"/>
-      <path fill="currentColor" d="M0 0 C1 1 2 2 3 3 C2.7 3.7 2.3 4.3 2 5 C1.3 3.3 0.7 1.7 0 0 Z " transform="translate(67,118)"/>
-      <path fill="currentColor" d="M0 0 C2.5 2.2 3.4 3.7 4 7 C1.5 4.8 0.6 3.3 0 0 Z " transform="translate(70,123)"/>
-      <path fill="currentColor" d="" transform="translate(0,0)"/>
-      <path fill="currentColor" d="M0 0 C2.5 2.2 3.4 3.7 4 7 C1.5 4.8 0.6 3.3 0 0 Z " transform="translate(74,130)"/>
-      <path fill="currentColor" d="M0 0 C0.3 0.7 0.7 1.3 1 2 C-0.4 4.6 -0.4 4.6 -2 7 C-2.3 6.3 -2.7 5.7 -3 5 C-1.6 2.4 -1.6 2.4 0 0 Z " transform="translate(97,130)"/>
-      <path fill="currentColor" d="M0 0 C2.5 2.2 3.4 3.7 4 7 C1.5 4.8 0.6 3.3 0 0 Z " transform="translate(78,137)"/>
-      <path fill="currentColor" d="M0 0 C0.3 0.7 0.7 1.3 1 2 C-0.4 4.6 -0.4 4.6 -2 7 C-2.3 6.3 -2.7 5.7 -3 5 C-1.6 2.4 -1.6 2.4 0 0 Z " transform="translate(93,137)"/>
-      <path fill="currentColor" d="M0 0 C2.3 0 4.7 0 7 0 C7.3 0.7 7.7 1.3 8 2 C7.1 4 6.1 6 5 8 C2.2 5.5 0.5 3.8 0 0 Z " transform="translate(82,144)"/>
-    </symbol>
-  </defs>
-</svg>
-<div id="themed-scenery" aria-hidden="true">
-  
-  <svg class="endfield-scene" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
-    <defs>
-      <radialGradient id="ef-field"><stop stop-color="#414535"/><stop offset="1" stop-color="#20261f"/></radialGradient>
-      <pattern id="ef-grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0v48" fill="none" stroke="#a3af87" opacity=".06"/></pattern>
-    </defs>
-    <rect width="1600" height="1000" fill="url(#ef-field)"/>
-    <rect width="1600" height="1000" fill="url(#ef-grid)"/>
-    <g transform="translate(1180 580)" fill="none">
-      <circle r="358" stroke="#12190f" stroke-width="31" opacity=".35"/>
-      <circle r="338" stroke="#abb48c" opacity=".15"/>
-      <circle r="322" stroke="#aeba92" opacity=".07" stroke-width="5"/>
-      <circle r="354" stroke="#b9c598" opacity=".12" stroke-dasharray="2 21" stroke-width="7"/>
-      <path d="M-245-226a334 334 0 0 1 450-23M290 160a332 332 0 0 1-272 174" stroke="#fefa02" stroke-width="2" opacity=".32"/>
-      <path d="M-290-56-220-90-179-145-100-131-53-78 12-92 51-29 118-14 164 53 257 79M-305-25-231-60-186-118-108-107-61-49 5-63 42-6 109 10 151 78 245 103M-315 3-235-29-195-91-119-82-69-25-2-39 28 18 99 35 139 102 232 128M-316 32-245-2-202-66-130-57-83 2-11-16 16 44 87 63 124 128 213 154M-310 62-252 26-213-41-141-28-95 29-21 11 1 73 68 90 101 154 193 179M-299 92-264 55-229-17-153 1-111 56-39 40-18 100 42 117 80 180 166 204" stroke="#a4af8d" stroke-width="1" opacity=".12"/>
-      <path d="M-373 0h746M0-373v746" stroke="#b3bd99" opacity=".08"/>
-      <path d="m-74 154 101-25 68 64-54 87-106-27Z" stroke="#fefa02" opacity=".22"/>
-    </g>
-    <text x="49" y="714" font-family="Arial, sans-serif" font-weight="800" font-size="100" letter-spacing="-5" fill="#c8d1ac" opacity=".06">ENDFIELD</text>
-    <text x="55" y="744" font-family="monospace" font-size="11" letter-spacing="4" fill="#c3ceaa" opacity=".25">INDUSTRIAL NETWORK / TELEMETRY</text>
-    <path d="M24 154h8m-4-4v8M1568 154h8m-4-4v8M24 853h8m-4-4v8M1568 853h8m-4-4v8" stroke="#c3d197" opacity=".4"/>
-  </svg>
-</div>
-
 <div id="header">
-  <h1 class="brand-title">
-    <svg id="faction-mark" aria-hidden="true"><use href="#mark-endfield"></use></svg>
-    <span class="legacy-title">Device Monitor</span>
-    <span class="faction-wordmark"><span id="brand-en">ENDFIELD INDUSTRIES</span><span id="brand-cn">终末地工业 · 设施监测</span></span>
-  </h1>
-  <span class="center" id="global-status" aria-live="polite">Waiting for agents</span>
+  <h1>Device Monitor</h1>
+  <span class="center" id="global-status">All systems nominal</span>
   <span class="right" id="last-update">--:--:--</span>
-  <span style="cursor:pointer;font-size:14px;padding:4px 6px;opacity:0.5;user-select:none" id="theme-btn" role="button" tabindex="0" aria-label="切换下一个主题" title="Theme">◈</span>
-  <span style="cursor:pointer;font-size:16px;padding:4px 8px;opacity:0.5;user-select:none;margin-left:2px" id="gear-btn" role="button" tabindex="0" aria-label="设置" title="Settings">&#9881;</span>
+  <span style="cursor:pointer;font-size:14px;padding:4px 6px;opacity:0.5;user-select:none" id="theme-btn" title="Theme">&#127912;</span>
+  <span style="cursor:pointer;font-size:16px;padding:4px 8px;opacity:0.5;user-select:none;margin-left:2px" id="gear-btn" title="Settings">&#9881;</span>
 </div>
-<section id="ops-strip" class="theme-only" aria-label="设备状态概览">
-  <div id="section-code" aria-hidden="true"><b>01</b><span>MONITOR</span></div>
-  <div id="ops-heading"><span id="ops-eyebrow">ENDFIELD // INDUSTRIAL NETWORK</span><h2 id="ops-title">设施监测</h2></div>
-  <div id="ops-count" title="已在线 / 可见设备，不包含 Clients Ping">
-    <strong><b id="online-count" style="font-weight:inherit">00</b><span> / <b id="visible-count" style="font-weight:inherit">00</b></span></strong>
-    <small>节点在线<span>AGENTS ONLINE</span></small>
-  </div>
-</section>
-<div id="grid" aria-label="设备监控卡片"></div>
-
+<div id="grid"></div>
 
 
 <!-- Settings modal -->
@@ -1037,12 +564,10 @@ try { const d=document.documentElement; const t=localStorage.getItem("monitor_th
       <label for="cfg-cols">Columns</label>
       <input type="number" id="cfg-cols" value="3" min="1" max="8" style="width:50px">
     </div>
-    <div class="table-scroll">
     <table id="dev-table">
       <thead><tr><th class="col-exp"></th><th class="col-name">Name</th><th class="col-url">URL</th><th class="col-int">Int</th><th class="col-int">Temp</th><th class="col-vis">Show</th><th class="col-vis">Ping</th><th class="col-del"></th></tr></thead>
       <tbody id="dev-tbody"></tbody>
     </table>
-    </div>
     <button class="btn-add" id="btn-add">+ Add device</button>
 
     <h2 style="margin-top:16px">Ping Devices <span>ICMP check — does not affect global status</span></h2>
@@ -1071,8 +596,6 @@ try { const d=document.documentElement; const t=localStorage.getItem("monitor_th
 // Device registry (persisted to localStorage)
 // =========================================================================
 
-// First-run registry. Edit these (or use the settings panel) to point at your
-// own agents; the placeholder hostnames are not resolved until you do.
 const DEFAULTS = [
   { id: "local",  name: "Local",  url: "http://localhost:9090/",    visible: true,  interval: 5, hiddenServices: [], servicesConfig: {}, tempLabel: "Amb", pingEnabled: true },
   { id: "server", name: "Server", url: "http://server.local:9090/", visible: false, interval: 5, hiddenServices: [], servicesConfig: {}, tempLabel: "Amb", pingEnabled: false },
@@ -1085,6 +608,10 @@ const DEFAULT_COLS = 3;
 // =========================================================================
 
 const THEMES = [
+  {
+    id: "dark", name: "Dark", icon: "🎨",
+    // no overrides — all default rendering
+  },
   {
     id: "crt", name: "CRT", icon: "◈",
     renderBar: (pct, availWidth, barCls) => {
@@ -1101,24 +628,24 @@ const THEMES = [
       return `<span class="crt-dot" style="color:var(--text)">${map[status]||map.unknown}</span>`;
     },
   },
-  { id: "endfield", name: "终末地", icon: "▰" },
+  {
+    id: "light", name: "Light", icon: "☀",
+    // no overrides — CSS only
+  },
 ];
 
-// New builds have their own appearance preference; old monitor_theme is untouched.
-const THEME_DEFAULT = document.documentElement.dataset.defaultTheme || "endfield";
-const LS_THEME = "monitor_theme_factions_" + THEME_DEFAULT;
+const LS_THEME = "monitor_theme";
 
 function loadTheme() {
   try {
     const stored = localStorage.getItem(LS_THEME);
     const found = THEMES.find(t => t.id === stored);
-    const t = found || THEMES.find(x => x.id === THEME_DEFAULT) || THEMES[0];
+    const t = found || THEMES[0];
     document.documentElement.dataset.theme = t.id;
     return t;
   } catch (_) {
-    const t = THEMES.find(x => x.id === THEME_DEFAULT) || THEMES[0];
-    document.documentElement.dataset.theme = t.id;
-    return t;
+    document.documentElement.dataset.theme = "dark";
+    return THEMES[0];
   }
 }
 
@@ -1129,90 +656,20 @@ function setTheme(id) {
   state.theme = t;
   const btn = document.getElementById("theme-btn");
   if (btn) btn.textContent = t.icon || "🎨";
-  syncThemeChrome();
   render(true); // theme changes every card's markup — full rebuild
 }
 
 function cycleTheme() {
-  const cur = document.documentElement.dataset.theme || "endfield";
+  const cur = document.documentElement.dataset.theme || "dark";
   const idx = THEMES.findIndex(t => t.id === cur);
   const next = THEMES[(idx + 1) % THEMES.length];
   setTheme(next.id);
 }
 
-
-// =========================================================================
-// Faction presentation adapter (no polling, no transport, no credentials).
-// Only new themes use the additional UI. Original transport functions below
-// keep their endpoints, payloads, cadence and lazy-start semantics.
-// =========================================================================
-const FACTION_COPY = {
-  endfield: {
-    en: 'ENDFIELD INDUSTRIES', cn: '终末地工业 · 设施监测', mark: 'mark-endfield',
-    eyebrow: 'ENDFIELD // INDUSTRIAL NETWORK', heading: '设施监测',
-    prefix: 'EF / INDUSTRIES', word: 'ENDFIELD', sub: '终末地工业',
-    chat: '通讯频道 / 佩丽卡', prompt: '输入消息 · Enter 发送…',
-    // 聊天回复的说话人标签。没有这个字段的主题（CRT）仍用 MIKU。
-    speaker: '佩丽卡',
-  },
-};
-
-// 当前主题的聊天人格名。CRT 没有 FACTION_COPY 条目，落回 Miku。
-function chatSpeaker() {
-  const c = FACTION_COPY[document.documentElement.dataset.theme];
-  return (c && c.speaker) || 'MIKU';
-}
-function syncThemeChrome() {
-  const id = document.documentElement.dataset.theme;
-  const copy = FACTION_COPY[id];
-  const btn = document.getElementById('theme-btn');
-  if (btn) btn.title = '当前：' + (THEMES.find(t => t.id === id)?.name || id) + ' · 点击切换';
-  const chatLabel = document.getElementById('chat-channel-label');
-  if (chatLabel) chatLabel.textContent = copy ? copy.chat : 'MIKU://CHAT';
-  const input = document.getElementById('console-input');
-  if (input) input.placeholder = copy ? copy.prompt : 'message…';
-  document.title = copy ? 'Device Monitor — 终末地' : 'Device Monitor';
-  if (!copy) return;
-  const labels = {'brand-en':copy.en, 'brand-cn':copy.cn, 'ops-eyebrow':copy.eyebrow,
-    'ops-title':copy.heading, 'identity-prefix':copy.prefix, 'identity-sub':copy.sub};
-  for (const [key,value] of Object.entries(labels)) {
-    const el = document.getElementById(key); if (el) el.textContent = value;
-  }
-  for (const key of ['faction-mark','identity-seal']) {
-    const el = document.querySelector('#' + key + ' use');
-    if (el) el.setAttribute('href', '#' + copy.mark);
-  }
-  const word = document.getElementById('identity-word');
-  if (word) { word.textContent = copy.word; word.style.whiteSpace = 'pre-line'; }
-}
-function syncFactionCounts(vis, offCnt, stCnt) {
-  if (!FACTION_COPY[document.documentElement.dataset.theme]) return;
-  const online = vis.filter(r => state.devices[r.id]?.status === 'online').length;
-  const unknown = vis.filter(r => !state.devices[r.id] || state.devices[r.id].status === 'unknown').length;
-  const pad = n => String(n).padStart(2,'0');
-  for (const [key,text] of [['online-count',pad(online)],['visible-count',pad(vis.length)],
-    ['identity-node-label',pad(online)+' / '+pad(vis.length)]]) {
-    const el = document.getElementById(key); if (el && el.textContent !== text) el.textContent = text;
-  }
-  let status = 'NOMINAL', cls = 'online';
-  if (!vis.length) { status = 'NO AGENTS'; cls = 'unknown'; }
-  else if (offCnt) { status = 'LINK LOST'; cls = 'offline'; }
-  else if (stCnt) { status = 'DATA STALE'; cls = 'stale'; }
-  else if (unknown) { status = 'WAITING'; cls = 'unknown'; }
-  const el = document.getElementById('identity-state');
-  const dot = document.getElementById('identity-state-dot');
-  if (el && el.textContent !== status) el.textContent = status;
-  if (dot && dot.className !== cls) dot.className = cls;
-  // Do not call an unpolled or empty registry "All systems nominal".
-  if (!vis.length) { globalStatus.textContent = 'No visible agents'; globalStatus.style.color = ''; }
-  else if (unknown && !offCnt && !stCnt) { globalStatus.textContent = unknown + ' waiting for data'; globalStatus.style.color = ''; }
-}
-
 let _idCounter = 0;
 
 // URL migrations for registries already saved in localStorage. Add an
-// "old": "new" pair here when an agent moves, so browsers that already have
-// the old address follow along instead of polling a dead host forever.
+// "old": "new" pair here when an agent moves.
 const LEGACY_URLS = {};
 
 function loadRegistry() {
@@ -1322,10 +779,7 @@ function toggleCollapse(id, card) {
   const on = _collapsed.has(id);
   card.classList.toggle("collapsed", on);
   const head = card.querySelector(".card-header");
-  if (head) {
-    head.title = on ? "点击展开" : "点击折叠";
-    if (head.hasAttribute("aria-expanded")) head.setAttribute("aria-expanded", String(!on));
-  }
+  if (head) head.title = on ? "点击展开" : "点击折叠";
 }
 
 // =========================================================================
@@ -1550,18 +1004,6 @@ function renderCard(dr) {
   // --- header ---
   const header = document.createElement("header");
   header.className = "card-header";
-  if (FACTION_COPY[state.theme.id]) {
-    const ix = document.createElement("span"); ix.className = "node-index";
-    ix.setAttribute("aria-hidden", "true");
-    const no = String(state.registry.findIndex(r => r.id === dr.id) + 1).padStart(2,"0");
-    ix.innerHTML = "<small>NODE</small><b>" + no + "</b>";
-    header.appendChild(ix);
-    header.tabIndex = 0; header.setAttribute("role","button");
-    header.setAttribute("aria-expanded", String(!_collapsed.has(d.id)));
-    header.addEventListener("keydown", e => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleCollapse(d.id, card); }
-    });
-  }
 
   if (state.theme.renderStatusDot) {
     const dot = document.createElement("span");
@@ -1575,7 +1017,6 @@ function renderCard(dr) {
     if (!dr.visible) {}
     else if (d.status === "online") dot.className += " online";
     else if (d.status === "stale")  dot.className += " stale";
-    else if (d.status === "unknown" && FACTION_COPY[state.theme.id]) dot.className += " unknown";
     else dot.className += " offline";
     header.appendChild(dot);
   }
@@ -1696,14 +1137,6 @@ function renderCard(dr) {
   }
 
   card.appendChild(body);
-  if (FACTION_COPY[state.theme.id]) {
-    const foot = document.createElement("footer"); foot.className = "node-footer";
-    const transport = document.createElement("span");
-    transport.textContent = "AGENT / " + (d.interval || 5) + "s POLL";
-    const status = document.createElement("span"); status.className = "node-state " + d.status;
-    status.textContent = ({online:"● ONLINE",stale:"△ DATA STALE",offline:"× OFFLINE",unknown:"… WAITING"})[d.status] || "UNKNOWN";
-    foot.appendChild(transport); foot.appendChild(status); card.appendChild(foot);
-  }
   return card;
 }
 
@@ -1937,8 +1370,6 @@ function render(force) {
   if (offCnt > 0) { globalStatus.textContent = `${offCnt} offline`; globalStatus.style.color = "var(--red)"; }
   else if (stCnt > 0) { globalStatus.textContent = `${stCnt} stale`; globalStatus.style.color = "var(--yellow)"; }
   else { globalStatus.textContent = "All systems nominal"; globalStatus.style.color = ""; }
-
-  syncFactionCounts(vis, offCnt, stCnt);
 
   // CRT mascot: green=all OK, red=offline, blur=high load
   const miku = document.getElementById("crt-miku");
@@ -2311,7 +1742,6 @@ function applySettings() {
   state.columnCount = Math.max(1, Math.min(8, cols));
   localStorage.setItem(LS_COLS, state.columnCount);
   grid.style.setProperty("--cols", state.columnCount);
-  grid.dataset.columns = String(state.columnCount);
 
   rebuildDeviceState();
   render(true);   // registry/columns changed — full rebuild
@@ -2368,7 +1798,6 @@ document.addEventListener("DOMContentLoaded", () => {
   state.theme = loadTheme();
   const tbtn = document.getElementById("theme-btn");
   if (tbtn) tbtn.textContent = state.theme.icon || "🎨";
-  syncThemeChrome();
 
   // CRT mascot: click to toggle between image sets
   const mikuEl = document.getElementById("crt-miku");
@@ -2393,18 +1822,12 @@ document.addEventListener("DOMContentLoaded", () => {
   try { state.columnCount = parseInt(localStorage.getItem(LS_COLS)) || DEFAULT_COLS; } catch(_) { state.columnCount = DEFAULT_COLS; }
   state.columnCount = Math.max(1, Math.min(8, state.columnCount));
   grid.style.setProperty("--cols", state.columnCount);
-  grid.dataset.columns = String(state.columnCount);
 
   rebuildDeviceState();
   initDragDrop();
 
   // Theme button
   document.getElementById("theme-btn").addEventListener("click", cycleTheme);
-  for (const id of ["theme-btn", "gear-btn"]) {
-    document.getElementById(id).addEventListener("keydown", e => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); }
-    });
-  }
 
   // Catch up on first frame when the tab becomes visible again (render is
   // deferred while hidden); window resize changes bar widths — full rebuild.
@@ -2534,11 +1957,9 @@ async function chatSend() {
   chatBusy = true;
   input.disabled = true;
   setChatStatus("THINKING", "st-thinking");
-  const replyNode = chatAppend(chatSpeaker() + ">", "miku", "…");
+  const replyNode = chatAppend("MIKU>", "miku", "…");
   try {
-    // 主题随消息一起发；后端据此选系统提示词并分隔会话历史
-    const r = await chatApi("POST", "/api/chat",
-      { message: text, theme: document.documentElement.dataset.theme }, 90000);
+    const r = await chatApi("POST", "/api/chat", { message: text }, 90000);
     if (!r.ok) throw new Error(r.data.error || "request failed");
     replyNode.textContent = r.data.reply || "(empty reply)";
     setChatStatus("LOCAL", "");
@@ -2558,7 +1979,6 @@ function chatToggle(open) {
   const wantOpen = open != null ? open : !dock.classList.contains("open");
   dock.classList.toggle("open", wantOpen);
   dock.classList.toggle("collapsed", !wantOpen);
-  document.getElementById("console-head")?.setAttribute("aria-expanded", String(wantOpen));
   const glyph = document.getElementById("console-toggle-glyph");
   if (glyph) glyph.textContent = wantOpen ? "[-]" : "[+]";
   if (wantOpen) {
@@ -2573,12 +1993,7 @@ function chatToggle(open) {
 document.addEventListener("DOMContentLoaded", () => {
   const head = document.getElementById("console-head");
   const input = document.getElementById("console-input");
-  if (head) {
-    head.addEventListener("click", () => chatToggle());
-    head.addEventListener("keydown", e => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); chatToggle(); }
-    });
-  }
+  if (head) head.addEventListener("click", () => chatToggle());
   if (input) input.addEventListener("keydown", e => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); chatSend(); }
   });
@@ -2594,44 +2009,29 @@ document.addEventListener("DOMContentLoaded", () => {
 <div id="bottom-row">
   <div id="dock-left">
     <div id="console-dock" class="collapsed">
-      <div id="console-head" role="button" tabindex="0" aria-expanded="false" aria-controls="console-output console-prompt">
-        <span id="console-title"><span id="console-toggle-glyph">[+]</span> <span id="chat-channel-label">MIKU://CHAT</span></span>
+      <div id="console-head">
+        <span id="console-title"><span id="console-toggle-glyph">[+]</span> MIKU://CHAT</span>
         <span id="console-status">[LOCAL]</span>
       </div>
-      <div id="console-output" role="log" aria-label="聊天记录" aria-live="polite"></div>
+      <div id="console-output"></div>
       <div id="console-prompt">
         <span>&gt;</span>
-        <input id="console-input" aria-label="聊天消息" autocomplete="off" placeholder="message…">
+        <input id="console-input" autocomplete="off" placeholder="message…">
       </div>
     </div>
     <div id="dock-info">
       <div class="dock-section">
-        <div class="dock-label"><span class="legacy-label">Plan</span><span class="themed-label"><b>调用额度</b>PLAN</span></div>
+        <div class="dock-label">Plan</div>
         <div id="account-bar"></div>
       </div>
       <div class="dock-section">
-        <div class="dock-label"><span class="legacy-label">Clients</span><span class="themed-label"><b>客户端</b>CLIENTS</span></div>
+        <div class="dock-label">Clients</div>
         <div id="ping-bar"></div>
       </div>
     </div>
   </div>
   <img id="crt-miku" src="" alt="">
-
-  <aside id="faction-identity" aria-label="主题标识与节点摘要">
-    <div id="identity-code"><span id="identity-prefix">EF / INDUSTRIES</span><span>MONITOR</span></div>
-    <div id="identity-center">
-      <svg id="identity-seal" aria-hidden="true" ><use href="#mark-endfield"></use></svg>
-      <div id="identity-name"><span id="identity-word">ENDFIELD</span><small id="identity-sub">终末地工业</small></div>
-    </div>
-    <div id="identity-bottom"><span id="identity-state-dot"></span><span id="identity-state">WAITING</span><span id="identity-node-label">00 / 00</span></div>
-  </aside>
 </div>
-
-<footer id="view-footer" class="theme-only">
-  <span>DEVICE MONITOR<span class="footer-long"> / LOCAL VIEW</span></span>
-  <span id="demo-badge">样例数据 · 非实时</span>
-</footer>
-
 
 </body>
 </html>
