@@ -9,3 +9,14 @@ maa_alerts.json
 .vscode/
 Thumbs.db
 .DS_Store
+
+# Per-machine configs. The private deployment keeps real ones at exactly these
+# names (deploy/config-main.json, deploy/config-nec8.json, deploy/config-n100.json)
+# and they carry machine-specific log paths — only the *.example.json templates
+# below belong in this repository. Listed here so a hand-sync can't commit one
+# by accident.
+deploy/config-*.json
+!deploy/config-*.example.json
+
+# Timestamped agent backups written by deploy/remote_update.py.
+*.bak-*
