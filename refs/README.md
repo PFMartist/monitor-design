@@ -138,14 +138,15 @@ not hand the new persona the previous one's transcript.
 | `crt` | Miku — unchanged from the original |
 | `endfield` | **Perlica**, condensed from MaaEnd's `perlica-style-reply` skill |
 
-`refs/perlica-skill.md` is that skill, reproduced verbatim for reference. It is
-not this project's work — it comes from the MaaEnd project at
-[MaaEnd/MaaEnd](https://github.com/MaaEnd/MaaEnd), path
-`.agents/skills/perlica-style-reply/SKILL.md` on the `v2` branch, and belongs to
-its authors under whatever license that repository carries. The system prompt in
-`chat_backend.py` is a condensation of it: the skill's rewrite drills and worked
-examples are agent-facing and do not belong in a chat prompt. Either prompt can
-be overridden without touching code, via a `prompts` object in
+`refs/perlica-skill.md` is that skill, reproduced verbatim. It is **not this
+project's work**: it comes from the MaaEnd project at
+[MaaEnd/MaaEnd](https://github.com/MaaEnd/MaaEnd) — path
+`.agents/skills/perlica-style-reply/SKILL.md` on the `v2` branch — which is
+licensed **AGPL-3.0**, and that licence (not this repository's) governs the
+file. See [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md). The system prompt
+in `chat_backend.py` is a condensation of it: the skill's rewrite drills and
+worked examples are agent-facing and do not belong in a chat prompt. Either
+prompt can be overridden without touching code, via a `prompts` object in
 `%APPDATA%\monitor_chat\config.json`.
 
 ## Checkpoints — `archive/`

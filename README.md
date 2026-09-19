@@ -220,8 +220,14 @@ archive/                 # 仪表盘旧版本快照
 deploy/                  # 示例配置、启动和安装脚本
 requirements.txt
 requirements-chat.txt
+SECURITY.md              # 威胁模型与暴露面
+THIRD-PARTY-NOTICES.md   # 第三方素材的来源与许可
 ```
 
 ## 资源与许可
 
-`assets/miku*/` 中的角色图像由生成式 AI 制作。`assets/ef-*` 与 `refs/` 下的徽标、底纹来自《明日方舟：终末地》官方素材（及其描摹），`refs/README.md` 逐项记录来源 —— 这些商标归鹰角网络 / Studio Montagne 所有，此处仅用于个人、非官方的界面。仓库目前未附带开源许可证，代码和资源默认保留所有权利。
+`assets/miku*/` 中的角色图像由生成式 AI 制作，角色归 Crypton Future Media 所有；`assets/ef-*` 与 `refs/` 下的徽标、底纹来自《明日方舟：终末地》官方素材（及其描摹），商标归鹰角网络 / Studio Montagne 所有，此处仅用于个人、非官方的界面；`refs/perlica-skill.md` 是 MaaEnd 项目的文件，按 **AGPL-3.0** 授权，那份许可（而不是本仓库的）管辖它。
+
+**逐项来源与许可见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)。**
+
+本仓库自己的代码与文档目前未附带开源许可证，默认保留所有权利 —— 这一句不覆盖上面那些第三方材料。
