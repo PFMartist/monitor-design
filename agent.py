@@ -1185,44 +1185,22 @@ OPENCODE_WINDOW_ALIASES = {
 QUOTA_WARN_PERCENT = 65  # same yellow threshold the metric bars use
 
 
-CLAUDE_SETTINGS_PATH = os.path.join(
-    os.path.expanduser("~"), ".claude", "settings.json"
-)
-OPENCODE_GATEWAY_HOST = "opencode.ai"
-
-
-def _key_from_claude_settings() -> str:
-    """cc-switch materialises the active provider into the *tool's* own config
-    rather than making tools read its database, so while Claude Code is pointed
-    at the opencode gateway its key is sitting right there.
-
-    The base-URL guard is the load-bearing part: flip cc-switch to another
-    provider and that same field holds a foreign key, which must never be sent
-    to opencode.ai. Guard fails → no key → the bar says so, instead of quietly
-    querying someone else's account.
-    """
-    try:
-        with open(CLAUDE_SETTINGS_PATH, encoding="utf-8") as f:
-            env = json.load(f).get("env") or {}
-    except Exception:
-        return ""
-    u = urllib.parse.urlparse(env.get("ANTHROPIC_BASE_URL", ""))
-    # https is required: over plain http this would put the key on the wire in
-    # cleartext. Host must match exactly — "opencode.ai.evil.com" parses to a
-    # different netloc, so the equality check already rejects it.
-    if u.scheme != "https" or u.netloc != OPENCODE_GATEWAY_HOST:
-        return ""
-    return env.get("ANTHROPIC_API_KEY", "") or ""
-
-
 def _opencode_key() -> str:
-    """Both env names are accepted because the surrounding tooling split on
-    them: OPENCODE_GO_API_KEY is what the plugin ecosystem asks for, and
-    OPENCODE_API_KEY is what this machine's dsh config declares."""
+    """The key comes from the environment and nowhere else.
+
+    Both names are accepted because the surrounding ecosystem split on them:
+    OPENCODE_GO_API_KEY is what the plugin ecosystem asks for, and
+    OPENCODE_API_KEY is the plainer spelling.
+
+    Reading it out of some other application's config file was considered and
+    rejected: a monitoring agent that quietly opens a neighbour's settings to
+    lift a credential is not a thing anyone should have to audit for, and the
+    user cannot tell from the outside whether it did.
+    """
     for name in ("OPENCODE_API_KEY", "OPENCODE_GO_API_KEY"):
         if os.environ.get(name):
             return os.environ[name]
-    return _key_from_claude_settings()
+    return ""
 
 
 def check_opencode() -> dict:
@@ -1244,7 +1222,7 @@ def _fetch_opencode(key: str) -> dict:
 
     if not key:
         result["error_code"] = "no_key"
-        result["error_message"] = "OPENCODE_API_KEY not set (and Claude Code isn't on the opencode gateway)"
+        result["error_message"] = "OPENCODE_API_KEY not set"
         return result
     try:
         data = _curl_get(OPENCODE_USAGE_URL, key)
