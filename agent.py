@@ -1321,8 +1321,10 @@ def run_service_checks(services_cfg: dict) -> dict:
 # Access control — source-address allowlist
 # ---------------------------------------------------------------------------
 # The agent has no authentication: whatever can reach the port can read every
-# metric and rewrite config.json. So the port itself is restricted to the
-# ZeroTier overlay plus loopback — the only clients are our own machines.
+# metric and rewrite config.json. So the port itself is restricted by source
+# address, and the default below is loopback only — out of the box it answers
+# nobody but the machine it runs on. Widen it with MONITOR_ALLOW_NETS when a
+# dashboard on another host has to poll it.
 #
 # The TCP peer address is what gets checked. X-Forwarded-For and X-Real-IP are
 # ordinary request headers that any client can set, so they never enter this
